@@ -1,0 +1,28 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+
+# Obtener el código desde GitHub
+- checkout: self
+  persistCredentials: true
+
+# Enviar el mismo commit a Azure Repos
+- script: |
+    git config user.name "Azure Pipelines"
+    git config user.email "azure-pipelines@dev.azure.com"
+
+    git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" \
+      push https://dev.azure.com/xpalenciap/Proyecto_APP_COMCESA/_git/Proyecto_APP_COMCESA HEAD:main
+
+  displayName: "Sincronizar GitHub con Azure Repos"
+  env:
+    SYSTEM_ACCESSTOKEN: $(System.AccessToken)
