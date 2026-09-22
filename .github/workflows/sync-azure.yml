@@ -18,6 +18,6 @@ jobs:
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git push https://${AZURE_PAT}@dev.azure.com/TU_ORG/TU_PROYECTO/_git/TU_REPO HEAD:main
+          git push https://${AZURE_PAT}@dev.azure.com/xpalenciap/Proyecto_APP_COMCESA/_git/Proyecto_APP_COMCESA HEAD:main
         env:
           AZURE_PAT: ${{ secrets.AZURE_PAT }}
