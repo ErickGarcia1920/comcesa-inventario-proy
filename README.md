@@ -26,7 +26,7 @@ tests/
 
 La estructura contempla documentación y scripts relacionados con SQL Server y las tablas `INVE`, `MULT`, `PRECIOS01` y `PRECIO_X_PROD01`.
 
-## Equipo
+## Equipo de trabajo
 
 - Saúl Osberto Escobar Fuentes
 - Ximena Lissett Palencia Palacios
