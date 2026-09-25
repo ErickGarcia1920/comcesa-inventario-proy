@@ -75,6 +75,10 @@ jobs:
 
       - name: Disparar deploy en Render
         run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "RENDER_DEPLOY_HOOK_URL no esta configurado como secreto todavia, se omite el deploy."
+            exit 0
+          fi
           curl -f -X POST "$RENDER_DEPLOY_HOOK_URL"
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
