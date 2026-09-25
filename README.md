@@ -67,6 +67,21 @@ Para conservar los datos, no agregues `--volumes` al comando anterior.
 
 `SEED_DEMO_DATA=true` permite cargar registros de demostración. Debe permanecer en `false` cuando se conecte la información real de Aspel SAE.
 
+## Pruebas
+
+Ejecutar la suite de integración con PostgreSQL y Redis activos:
+
+```bash
+npm run test:integration
+```
+
+La suite contiene 30 casos automatizados. El plan y la matriz de trazabilidad están en:
+
+- `docs/pruebas/plan-pruebas.md`
+- `docs/pruebas/matriz-trazabilidad.md`
+
+La estrategia usa `node:test` porque el sistema está construido con Node.js. La consigna menciona `pytest + Selenium`; Selenium puede agregarse para evidencia de navegador, pero no reemplaza las pruebas de integración del backend ni es una dependencia necesaria para este stack.
+
 ## Seguridad
 
 - La autenticación usa contraseñas con `bcrypt` y sesiones opacas almacenadas en Redis.
@@ -75,24 +90,7 @@ Para conservar los datos, no agregues `--volumes` al comando anterior.
 - Las consultas de inventario son parametrizadas, paginadas y limitadas por filtros validados.
 - PostgreSQL y Redis no deben exponerse públicamente en producción.
 
-## Despliegue sencillo
-
-Una opción práctica es conectar el repositorio de GitHub con Render como Web Service usando `docker/backend/Dockerfile`. Para producción se recomienda utilizar una base PostgreSQL administrada en Neon y Redis administrado en Upstash, en lugar de desplegar los contenedores locales de PostgreSQL y Redis.
-
-En el panel del servicio web configura:
-
-```env
-NODE_ENV=production
-PORT=3000
-CORS_ORIGIN=https://tu-dominio.onrender.com
-DATABASE_URL=postgresql://...
-REDIS_URL=rediss://...
-SESSION_SECRET=secreto-generado-por-el-proveedor
-POSTGRES_PASSWORD=un-secreto-largo
-SEED_DEMO_DATA=false
-```
-
-No subas `.env` a GitHub. Los secretos de producción deben configurarse en el panel del proveedor. Cada push a `main` puede activar un nuevo despliegue desde GitHub.
+El despliegue de la aplicación queda fuera del alcance de esta entrega. Actualmente solo se automatizan build y pruebas; no se configuran proveedores, webhooks ni ambientes staging.
 
 ## Equipo
 

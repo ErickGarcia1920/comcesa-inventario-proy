@@ -6,15 +6,22 @@ function notFoundHandler(request, response) {
 }
 
 function errorHandler(error, request, response, next) {
-  request.log.error({ err: error }, 'request_failed');
+  if (request.log) {
+    request.log.error({ err: error }, 'request_failed');
+  } else {
+    console.error('request_failed', error.message);
+  }
 
   if (response.headersSent) {
     return next(error);
   }
 
-  response.status(error.statusCode || 500).json({
-    error: error.code || 'INTERNAL_SERVER_ERROR',
-    message: error.statusCode ? error.message : 'Error interno del servidor'
+  const isPayloadTooLarge = error.type === 'entity.too.large';
+  const statusCode = isPayloadTooLarge ? 413 : (error.status || error.statusCode || 500);
+
+  response.status(statusCode).json({
+    error: error.code || (statusCode === 413 ? 'PAYLOAD_TOO_LARGE' : 'INTERNAL_SERVER_ERROR'),
+    message: statusCode < 500 ? error.message : 'Error interno del servidor'
   });
 }
 

@@ -2,10 +2,8 @@ services:
   postgres:
     image: postgres:16-alpine
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-comcesa}
-      POSTGRES_USER: ${POSTGRES_USER:-comcesa}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
+    env_file:
+      - ../.env
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -37,16 +35,15 @@ services:
     profiles:
       - app
     restart: unless-stopped
+    env_file:
+      - ../.env
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: ${BACKEND_PORT:-3000}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-comcesa}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}@postgres:5432/${POSTGRES_DB:-comcesa}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
     ports:
       - "${BACKEND_PORT:-3000}:3000"

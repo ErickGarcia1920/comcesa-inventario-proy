@@ -8,6 +8,7 @@
     "dev": "node --watch src/backend/app.js",
     "start": "node src/backend/app.js",
     "test": "node --test",
+    "test:integration": "node --test tests/backend/api.test.js",
     "admin:create": "node scripts/create-admin.js"
   },
   "engines": {
