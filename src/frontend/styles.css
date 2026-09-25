@@ -26,6 +26,7 @@ button { cursor: pointer; }
 .brand-panel { display: flex; flex-direction: column; justify-content: center; padding: clamp(2rem, 8vw, 8rem); color: white; background: var(--navy); position: relative; overflow: hidden; }
 .brand-panel::after { content: ""; position: absolute; width: 520px; height: 520px; border: 1px solid rgba(82,196,223,.25); border-radius: 50%; right: -210px; bottom: -180px; box-shadow: 0 0 0 28px rgba(82,196,223,.06), 0 0 0 58px rgba(82,196,223,.04); }
 .brand-mark { color: white; font: 700 clamp(2.8rem, 6vw, 6rem)/.9 "Space Grotesk", sans-serif; letter-spacing: .08em; position: relative; z-index: 1; }
+.brand-logo { max-width: 220px; width: 60%; height: auto; position: relative; z-index: 1; }
 .brand-mark span, .mini-mark span { color: var(--cyan); }
 .brand-kicker { color: #aee5f0; letter-spacing: .17em; text-transform: uppercase; font-size: .72rem; margin: 1.2rem 0 2.5rem; position: relative; z-index: 1; }
 .brand-line { width: 84px; height: 4px; background: var(--cyan); margin-bottom: 1.5rem; position: relative; z-index: 1; }
