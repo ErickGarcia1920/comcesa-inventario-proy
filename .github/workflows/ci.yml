@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, qa]
+  pull_request:
+    branches: [main, dev, qa]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: comcesa
+          POSTGRES_USER: comcesa
+          POSTGRES_PASSWORD: test-postgres-password-1234
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U comcesa -d comcesa"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      NODE_ENV: test
+      SESSION_SECRET: ci-session-secret-000000000000000000
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: comcesa
+      POSTGRES_USER: comcesa
+      POSTGRES_PASSWORD: test-postgres-password-1234
+      REDIS_URL: redis://localhost:6379
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas de integracion
+        run: npm run test:integration
+
+      - name: Construir imagen Docker (validacion de build)
+        run: docker build -f docker/backend/Dockerfile -t comcesa-inventario:${{ github.sha }} .
+
+  # Job de despliegue: solo corre si build-and-test paso y estamos en main.
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Disparar deploy en Render
+        run: |
+          curl -f -X POST "$RENDER_DEPLOY_HOOK_URL"
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
