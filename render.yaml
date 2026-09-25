@@ -1,0 +1,42 @@
+databases:
+  - name: comcesa-postgres
+    plan: free
+    databaseName: comcesa
+    user: comcesa
+
+services:
+  - type: keyvalue
+    name: comcesa-redis
+    plan: free
+    ipAllowList: []
+
+  - type: web
+    name: comcesa-inventario
+    runtime: docker
+    dockerfilePath: ./docker/backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: SEED_DEMO_DATA
+        value: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: comcesa-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: comcesa-redis
+          type: keyvalue
+          property: connectionString
