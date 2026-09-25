@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Consulta segura de inventario COMCESA">
+  <title>COMCESA | Inventario</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-view">
+    <header class="topbar">
+      <a class="topbar-brand" href="/inventario" aria-label="COMCESA inicio"><span class="mini-mark">C<span>O</span></span> COMCESA</a>
+      <div class="user-actions">
+        <span id="user-email" class="user-email"></span>
+        <button id="logout-button" class="ghost-button" type="button">Cerrar sesión</button>
+      </div>
+    </header>
+    <div class="content-wrap">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow">Operaciones</span>
+          <h1 id="inventory-title">Inventario</h1>
+          <p>Consulta existencias por artículo y bodega en tiempo real.</p>
+        </div>
+        <div class="status-chip"><span class="status-dot"></span> Sistema operativo</div>
+      </div>
+      <form id="filters-form" class="filters-panel">
+        <div class="filter-field search-field"><label for="search">Buscar artículo</label><input id="search" name="search" type="search" maxlength="100" placeholder="Clave o descripción"></div>
+        <div class="filter-field"><label for="warehouse">Bodega</label><input id="warehouse" name="warehouse" type="number" min="1" step="1" placeholder="Todas"></div>
+        <div class="filter-field"><label for="line">Línea</label><input id="line" name="line" type="text" maxlength="20" placeholder="Todas"></div>
+        <div class="filter-field"><label for="status">Estado</label><select id="status" name="status"><option value="">Todos</option><option value="A">Activo</option><option value="I">Inactivo</option></select></div>
+        <div class="filter-field"><label for="sort">Ordenar por</label><select id="sort" name="sort"><option value="article">Artículo</option><option value="description">Descripción</option><option value="warehouse">Bodega</option><option value="stock">Existencia</option></select></div>
+        <button class="primary-button filter-button" type="submit">Consultar <span aria-hidden="true">↗</span></button>
+      </form>
+      <div class="results-header"><div><strong id="result-count">0</strong> registros encontrados</div><p id="results-message" class="form-message" role="status" aria-live="polite"></p></div>
+      <div class="table-frame"><div class="table-scroll"><table><thead><tr><th>Artículo</th><th>Descripción</th><th>Línea</th><th>Bodega</th><th>Estado</th><th class="numeric">Existencia</th></tr></thead><tbody id="inventory-body"></tbody></table><div id="empty-state" class="empty-state" hidden>No hay registros para los filtros seleccionados.</div></div></div>
+      <div class="pagination"><button id="previous-page" class="page-button" type="button" disabled>← Anterior</button><span id="page-label">Página 1 de 1</span><button id="next-page" class="page-button" type="button" disabled>Siguiente →</button></div>
+    </div>
+  </main>
+  <script src="/inventory.js?v=1" defer></script>
+</body>
+</html>
