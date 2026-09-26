@@ -12,7 +12,7 @@ const inventoryRoutes = require('./routes/inventoryRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const originGuard = require('./middlewares/originGuard');
 
-const app = express();
+app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
 app.use(helmet({
