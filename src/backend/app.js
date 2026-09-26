@@ -15,7 +15,14 @@ const originGuard = require('./middlewares/originGuard');
 const app = express();
 
 app.disable('x-powered-by');
-app.use(helmet());
+app.use(helmet({
+	contentSecurityPolicy: {
+		directives: {
+			...helmet.contentSecurityPolicy.getDefaultDirectives(),
+			'img-src': ["'self'", 'data:', 'https://comcesa.net']
+		}
+	}
+}));
 app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) }));
 app.use(express.json({ limit: '100kb' }));
 app.use(pinoHttp());
