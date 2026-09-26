@@ -1,53 +1,66 @@
-/**
- * scripts/sync-aspel.js
- *
- * Sincroniza (solo lectura del lado de SQL Server) las tablas de Aspel SAE
- * hacia la copia operativa en PostgreSQL que usa el backend para consultas.
- *
- * IMPORTANTE:
- * - Este script solo ejecuta SELECT contra SQL Server. Nunca escribe en Aspel SAE.
- * - El servidor SQL Server de Aspel SAE normalmente vive en la red local de la
- *   empresa y NO es accesible desde el servicio desplegado en la nube. Por eso
- *   este script se ejecuta desde dentro de la red de COMCESA (una laptop, un
- *   mini PC o un servidor local con Node.js), y empuja los datos a la base de
- *   datos Postgres que SI esta expuesta al backend en la nube. Puede
- *   programarse con el Programador de tareas de Windows o un cron local.
- *
- * Variables de entorno esperadas (definir en un .env local, NUNCA commitear):
- *   ASPEL_SQLSERVER_HOST      -> host o IP del servidor (ej. "SERVER")
- *   ASPEL_SQLSERVER_INSTANCE  -> nombre de instancia (ej. "SERVER" en "SERVER\SERVER")
- *   ASPEL_SQLSERVER_PORT      -> opcional, si no se usa instanceName (ej. 1433)
- *   ASPEL_SQLSERVER_DB        -> ej. "SAE80Empre01"
- *   ASPEL_SQLSERVER_USER      -> ej. "Consulta"
- *   ASPEL_SQLSERVER_PASSWORD  -> la clave (secreta, solo en el .env local)
- *   ASPEL_SQLSERVER_ENCRYPT   -> "true" | "false" (SQL Server viejo sin TLS -> false)
- *
- *   POSTGRES_* o DATABASE_URL -> igual que el resto del backend (ver .env.example)
- *
- * Uso:
- *   node scripts/sync-aspel.js
- */
-
 require('dotenv').config();
 
 const sql = require('mssql');
 const { pool } = require('../src/backend/config/database');
 
 function requireEnv(name) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Falta la variable de entorno ${name}. Revisa tu .env local.`);
-  }
-  return value;
+	const value = process.env[name];
+	if (!value) {
+		throw new Error(`Falta la variable de entorno ${name}. Revisa tu .env local.`);
+	}
+	return value;
 }
 
 function buildSqlServerConfig() {
-  const instanceName = process.env.ASPEL_SQLSERVER_INSTANCE;
-  const port = process.env.ASPEL_SQLSERVER_PORT;
+	const instanceName = process.env.ASPEL_SQLSERVER_INSTANCE;
+	const port = process.env.ASPEL_SQLSERVER_PORT;
 
-  return {
-    server: requireEnv('ASPEL_SQLSERVER_HOST'),
-    database: requireEnv('ASPEL_SQLSERVER_DB'),
-    user: requireEnv('ASPEL_SQLSERVER_USER'),
-    password: requireEnv('ASPEL_SQLSERVER_PASSWORD'),
-    // Nunca se usan mas privilegios que SELECT: el usuario
+	return {
+		server: requireEnv('ASPEL_SQLSERVER_HOST'),
+		database: requireEnv('ASPEL_SQLSERVER_DB'),
+		user: requireEnv('ASPEL_SQLSERVER_USER'),
+		password: requireEnv('ASPEL_SQLSERVER_PASSWORD'),
+		options: {
+			encrypt: process.env.ASPEL_SQLSERVER_ENCRYPT === 'true',
+			trustServerCertificate: true,
+			...(instanceName ? { instanceName } : {})
+		},
+		port: instanceName ? undefined : Number(port || 1433)
+	};
+}
+
+async function syncInventario() {
+	const sqlConfig = buildSqlServerConfig();
+	const aspelPool = await sql.connect(sqlConfig);
+
+	const articulos = await aspelPool.request().query('SELECT CVE_ART, DESCR, LIN_PROD, UNI_MED FROM dbo.INVE');
+	const existencias = await aspelPool.request().query('SELECT CVE_ART, CVE_ALM, STATUS, CTRL_ALM, EXIST FROM dbo.MULT');
+
+	for (const row of articulos.recordset) {
+		await pool.query(`
+			INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (cve_art) DO UPDATE SET descr = EXCLUDED.descr, lin_prod = EXCLUDED.lin_prod, uni_med = EXCLUDED.uni_med
+		`, [row.CVE_ART.trim(), row.DESCR.trim(), row.LIN_PROD ? row.LIN_PROD.trim() : null, row.UNI_MED.trim()]);
+	}
+
+	for (const row of existencias.recordset) {
+		await pool.query(`
+			INSERT INTO mult (cve_art, cve_alm, status, ctrl_alm, exist)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (cve_art, cve_alm) DO UPDATE SET status = EXCLUDED.status, ctrl_alm = EXCLUDED.ctrl_alm, exist = EXCLUDED.exist
+		`, [row.CVE_ART.trim(), row.CVE_ALM, row.STATUS.trim(), row.CTRL_ALM ? row.CTRL_ALM.trim() : null, row.EXIST]);
+	}
+
+	console.log(`Sincronizados ${articulos.recordset.length} articulos y ${existencias.recordset.length} registros de existencias.`);
+
+	await aspelPool.close();
+	await pool.end();
+}
+
+syncInventario()
+	.then(() => process.exit(0))
+	.catch((error) => {
+		console.error('Error al sincronizar con Aspel SAE:', error.message);
+		process.exit(1);
+	});
