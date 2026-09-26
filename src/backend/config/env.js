@@ -10,7 +10,7 @@ const environmentSchema = z.object({
   SESSION_SECRET: z.string().min(32),
   ADMIN_EMAIL: z.preprocess((value) => value === '' ? undefined : value, z.string().email().optional()),
   ADMIN_PASSWORD: z.preprocess((value) => value === '' ? undefined : value, z.string().min(12).optional()),
-  SEED_DEMO_DATA: z.coerce.boolean().default(false),
+  SEED_DEMO_DATA: z.preprocess((value) => value === 'true' || value === true, z.boolean()).default(false),
   DATABASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
   POSTGRES_DB: z.string().default('comcesa'),
