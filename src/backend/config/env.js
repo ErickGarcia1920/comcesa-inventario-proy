@@ -15,7 +15,7 @@ const environmentSchema = z.object({
   REDIS_URL: z.string().url().optional(),
   POSTGRES_DB: z.string().default('comcesa'),
   POSTGRES_USER: z.string().default('comcesa'),
-  POSTGRES_PASSWORD: z.string().min(16),
+  POSTGRES_PASSWORD: z.string().min(16).optional(),
   POSTGRES_HOST: z.string().default('localhost'),
   POSTGRES_PORT: z.coerce.number().int().positive().max(65535).default(5432)
 });
