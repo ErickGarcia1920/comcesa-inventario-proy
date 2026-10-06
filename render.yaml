@@ -1,9 +1,3 @@
-databases:
-  - name: comcesa-postgres
-    plan: free
-    databaseName: comcesa
-    user: comcesa
-
 services:
   - type: keyvalue
     name: comcesa-redis
@@ -31,10 +25,20 @@ services:
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+      # Base de datos en Neon (gratis, sin vencimiento). Pegar la cadena de conexion en el panel de Render.
       - key: DATABASE_URL
-        fromDatabase:
-          name: comcesa-postgres
-          property: connectionString
+        sync: false
+      # Correo para "olvide mi contrasena" (opcional, ej. Gmail con contrasena de aplicacion)
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: 587
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false
       - key: REDIS_URL
         fromService:
           name: comcesa-redis

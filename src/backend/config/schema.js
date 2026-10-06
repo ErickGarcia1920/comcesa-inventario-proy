@@ -16,6 +16,8 @@ async function ensureDatabaseSchema() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+
     CREATE TABLE IF NOT EXISTS inve (
       cve_art VARCHAR(20) PRIMARY KEY,
       descr VARCHAR(100) NOT NULL,

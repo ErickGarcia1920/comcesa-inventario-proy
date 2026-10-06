@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COMCESA | Usuarios</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="app-view">
+    <header class="topbar">
+      <a class="topbar-brand" href="/inventario" aria-label="COMCESA inicio"><span class="mini-mark">C<span>O</span></span> COMCESA</a>
+      <div class="user-actions">
+        <a class="ghost-button" href="/inventario">Inventario</a>
+        <button id="logout-button" class="ghost-button" type="button">Cerrar sesión</button>
+      </div>
+    </header>
+    <div class="content-wrap">
+      <div class="page-heading"><div><span class="eyebrow">Administración</span><h1>Usuarios</h1><p>Crea, desactiva o elimina accesos al portal.</p></div></div>
+      <form id="create-form" class="filters-panel">
+        <div class="filter-field search-field"><label for="new-email">Correo del nuevo usuario</label><input id="new-email" type="email" required maxlength="254" placeholder="nombre@empresa.com"></div>
+        <div class="filter-field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Consulta</option><option value="admin">Administrador</option></select></div>
+        <button class="primary-button filter-button" type="submit">Crear usuario</button>
+      </form>
+      <div id="temp-box" class="temp-box" hidden>
+        <p><strong id="temp-email"></strong>: contraseña temporal (se muestra solo una vez, entrégasela por un canal seguro)</p>
+        <code id="temp-password"></code>
+        <button id="copy-temp" class="page-button" type="button">Copiar</button>
+      </div>
+      <p id="message" class="form-message" role="alert" aria-live="polite"></p>
+      <div class="table-frame"><div class="table-scroll"><table><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+    </div>
+  </main>
+  <script src="/users.js?v=1" defer></script>
+</body>
+</html>

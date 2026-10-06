@@ -20,7 +20,8 @@ loginForm.addEventListener('submit', async (event) => {
       const body = await response.json().catch(() => ({}));
       throw new Error(response.status === 429 ? 'Demasiados intentos. Espera unos minutos.' : (body.message || 'Credenciales invalidas'));
     }
-    window.location.assign('/inventario');
+    const result = await response.json().catch(() => ({}));
+    window.location.assign(result.mustChangePassword ? '/cambiar-password' : '/inventario');
   } catch (error) {
     loginMessage.textContent = error.message;
     loginButton.disabled = false;

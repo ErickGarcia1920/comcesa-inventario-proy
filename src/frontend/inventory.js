@@ -44,7 +44,9 @@ async function loadInventory() {
 async function initialize() {
   try {
     const data = await apiRequest('/api/v1/auth/me');
+    if (data.user.mustChangePassword) { window.location.replace('/cambiar-password'); return; }
     document.querySelector('#user-email').textContent = data.user.email;
+    if (data.user.role === 'admin') document.querySelector('#admin-link').hidden = false;
     await loadInventory();
   } catch (error) { if (error.message === 'UNAUTHENTICATED') window.location.replace('/login'); else resultsMessage.textContent = error.message; }
 }

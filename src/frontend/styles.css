@@ -75,3 +75,13 @@ td:first-child { color: var(--navy); font-weight: 700; }
 .page-button:disabled { cursor: not-allowed; opacity: .45; }
 @media (max-width: 1050px) { .filters-panel { grid-template-columns: repeat(3, 1fr); } .search-field { grid-column: span 2; } }
 @media (max-width: 720px) { .login-layout { display: block; } .brand-panel { min-height: 38vh; padding: 2rem 1.5rem; } .brand-mark { font-size: 2.8rem; } .brand-kicker { margin: .8rem 0 1rem; } .brand-copy { display: none; } .login-panel { padding: 2.5rem 1.5rem; } .topbar { align-items: flex-start; flex-direction: column; padding: 1rem 1.25rem; } .user-actions { width: 100%; justify-content: space-between; } .content-wrap { padding: 2rem 1rem; } .page-heading { align-items: flex-start; flex-direction: column; } .filters-panel { grid-template-columns: 1fr; } .search-field { grid-column: auto; } .results-header { align-items: flex-start; flex-direction: column; gap: .2rem; } }
+
+/* Usuarios, recuperación y cambio de contraseña */
+a.ghost-button { text-decoration: none; display: inline-block; }
+.text-link { color: var(--navy); font-size: .9rem; text-decoration: underline; margin-top: .5rem; }
+.temp-box { background: #fff8e1; border: 1px solid #e0c36a; padding: 1rem 1.25rem; margin: 1rem 0; display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.temp-box p { margin: 0; flex-basis: 100%; }
+.temp-box code { font-size: 1.15rem; font-weight: 700; letter-spacing: .05em; }
+.temp-box .page-button, .small-button { color: var(--navy); border-color: var(--navy); }
+.inline-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.small-button { padding: .35rem .6rem; font-size: .8rem; }

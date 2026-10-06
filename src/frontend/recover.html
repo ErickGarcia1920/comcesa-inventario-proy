@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>COMCESA | Recuperar contraseña</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="login-layout">
+      <div class="brand-panel">
+        <img class="brand-logo" src="/comcesa-logo.png" alt="COMCESA">
+        <p class="brand-kicker">Componentes de Centroamerica, S.A.</p>
+        <div class="brand-line"></div>
+      </div>
+      <div class="login-panel">
+        <div class="panel-heading">
+          <span class="eyebrow">Portal interno</span>
+          <h1>Recupera tu acceso</h1>
+          <p>Te enviaremos un código a tu correo.</p>
+        </div>
+        <form id="form" class="form-stack">
+          <label for="email">Correo electrónico</label>
+          <input id="email" type="email" autocomplete="username" required maxlength="254" placeholder="nombre@empresa.com">
+          <button id="send" class="primary-button" type="submit">Enviarme un código</button>
+          <div id="reset-fields" class="form-stack" hidden>
+            <label for="code">Código de 6 dígitos</label>
+            <input id="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code">
+            <label for="new">Nueva contraseña</label>
+            <input id="new" type="password" autocomplete="new-password" minlength="10" maxlength="200" placeholder="Mínimo 10 caracteres, con letras y números">
+            <button id="reset" class="primary-button" type="button">Cambiar contraseña</button>
+          </div>
+          <p id="message" class="form-message" role="alert" aria-live="polite"></p>
+          <a class="text-link" href="/login">← Volver a iniciar sesión</a>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script src="/recover.js?v=1" defer></script>
+</body>
+</html>

@@ -9,6 +9,7 @@ const { ensureDatabaseSchema } = require('./config/schema');
 const authRoutes = require('./routes/authRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
+const userRoutes = require('./routes/userRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const originGuard = require('./middlewares/originGuard');
 
@@ -33,11 +34,16 @@ app.use(originGuard);
 app.use('/api/v1', healthRoutes);
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/users', userRoutes);
 app.get(['/', '/login'], (request, response) => {
 	response.sendFile(path.join(__dirname, '../frontend/login.html'));
 });
 app.get('/inventario', (request, response) => {
 	response.sendFile(path.join(__dirname, '../frontend/inventory.html'));
+});
+const pages = { '/cambiar-password': 'change-password.html', '/recuperar': 'recover.html', '/usuarios': 'users.html' };
+Object.entries(pages).forEach(([route, file]) => {
+	app.get(route, (request, response) => response.sendFile(path.join(__dirname, '../frontend', file)));
 });
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use(notFoundHandler);
