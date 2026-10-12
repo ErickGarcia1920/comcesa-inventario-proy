@@ -28,8 +28,30 @@ function renderInventory(data) {
   emptyState.hidden = data.items.length > 0;
   data.items.forEach((item) => {
     const row = document.createElement('tr');
-    [item.article, item.description, item.line || '—', `${item.warehouse}${item.warehouse_name ? ` · ${item.warehouse_name}` : ''}`, item.status === 'A' ? 'Activo' : item.status, Number(item.stock).toLocaleString('es-GT', { maximumFractionDigits: 4 })].forEach((value, index) => {
-      const cell = document.createElement('td'); cell.textContent = value; if (index === 5) cell.className = 'numeric'; row.appendChild(cell);
+    const stock = Number(item.stock);
+    const statusText = item.status === 'A' ? 'Activo' : (item.status === 'I' ? 'Inactivo' : item.status);
+    const cells = [
+      { col: 'article', label: '', value: item.article },
+      { col: 'description', label: '', value: item.description },
+      { col: 'line', label: 'Línea', value: item.line || '—' },
+      { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${item.warehouse_name}` : ''}` },
+      { col: 'status', label: '', value: statusText, badge: item.status === 'A' ? 'badge-active' : 'badge-inactive' },
+      { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' }
+    ];
+    cells.forEach((cellData) => {
+      const cell = document.createElement('td');
+      cell.dataset.col = cellData.col;
+      if (cellData.label) cell.dataset.label = cellData.label;
+      if (cellData.className) cell.className = cellData.className;
+      if (cellData.badge) {
+        const badge = document.createElement('span');
+        badge.className = `badge ${cellData.badge}`;
+        badge.textContent = cellData.value;
+        cell.appendChild(badge);
+      } else {
+        cell.textContent = cellData.value;
+      }
+      row.appendChild(cell);
     });
     inventoryBody.appendChild(row);
   });

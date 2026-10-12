@@ -2,25 +2,26 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#063b68">
   <title>COMCESA | Usuarios</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=3">
 </head>
 <body>
   <main class="app-view">
     <header class="topbar">
-      <a class="topbar-brand" href="/inventario" aria-label="COMCESA inicio"><span class="mini-mark">C<span>O</span></span> COMCESA</a>
+      <a class="topbar-brand" href="/inventario" aria-label="COMCESA, ir al inventario"><img class="topbar-logo" src="/comcesa-logo.png" alt="COMCESA" width="582" height="122"></a>
       <div class="user-actions">
         <a class="ghost-button" href="/inventario">Inventario</a>
-        <button id="logout-button" class="ghost-button" type="button">Cerrar sesión</button>
+        <button id="logout-button" class="ghost-button" type="button"><span class="label-long">Cerrar sesión</span><span class="label-short">Salir</span></button>
       </div>
     </header>
     <div class="content-wrap">
-      <div class="page-heading"><div><span class="eyebrow">Administración</span><h1>Usuarios</h1><p>Crea, desactiva o elimina accesos al portal.</p></div></div>
-      <form id="create-form" class="filters-panel">
+      <div class="page-heading"><div><h1>Usuarios</h1><p>Crea, desactiva o elimina accesos al portal.</p></div></div>
+      <form id="create-form" class="filters-panel filters-panel--users">
         <div class="filter-field search-field"><label for="new-email">Correo del nuevo usuario</label><input id="new-email" type="email" required maxlength="254" placeholder="nombre@empresa.com"></div>
         <div class="filter-field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Consulta</option><option value="admin">Administrador</option></select></div>
         <button class="primary-button filter-button" type="submit">Crear usuario</button>
@@ -31,9 +32,9 @@
         <button id="copy-temp" class="page-button" type="button">Copiar</button>
       </div>
       <p id="message" class="form-message" role="alert" aria-live="polite"></p>
-      <div class="table-frame"><div class="table-scroll"><table><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+      <div class="table-frame"><div class="table-scroll"><table class="stack-table"><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
     </div>
   </main>
-  <script src="/users.js?v=1" defer></script>
+  <script src="/users.js?v=2" defer></script>
 </body>
 </html>

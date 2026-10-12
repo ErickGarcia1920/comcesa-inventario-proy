@@ -23,10 +23,10 @@ function showTemp(email, password) {
   tempBox.hidden = false;
 }
 
-function actionButton(label, handler) {
+function actionButton(label, handler, extraClass = '') {
   const button = document.createElement('button');
   button.type = 'button';
-  button.className = 'page-button small-button';
+  button.className = `page-button small-button ${extraClass}`.trim();
   button.textContent = label;
   button.addEventListener('click', async () => {
     message.textContent = '';
@@ -35,18 +35,40 @@ function actionButton(label, handler) {
   return button;
 }
 
+function badge(text, kind) {
+  const span = document.createElement('span');
+  span.className = `badge ${kind}`;
+  span.textContent = text;
+  return span;
+}
+
 function render(users) {
   body.replaceChildren();
   users.forEach((user) => {
     const row = document.createElement('tr');
-    const status = !user.active ? 'Inactivo' : (user.must_change_password ? 'Pendiente de cambiar contraseña' : 'Activo');
-    [user.email, user.role === 'admin' ? 'Administrador' : 'Consulta', status].forEach((value) => {
-      const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell);
-    });
+
+    const emailCell = document.createElement('td');
+    emailCell.dataset.col = 'email';
+    emailCell.textContent = user.email;
+
+    const roleCell = document.createElement('td');
+    roleCell.dataset.col = 'role';
+    roleCell.dataset.label = 'Rol';
+    roleCell.textContent = user.role === 'admin' ? 'Administrador' : 'Consulta';
+
+    const statusCell = document.createElement('td');
+    statusCell.dataset.col = 'status';
+    statusCell.dataset.label = 'Estado';
+    if (!user.active) statusCell.appendChild(badge('Inactivo', 'badge-inactive'));
+    else if (user.must_change_password) statusCell.appendChild(badge('Debe cambiar contraseña', 'badge-pending'));
+    else statusCell.appendChild(badge('Activo', 'badge-active'));
+
     const actions = document.createElement('td');
-    actions.className = 'inline-actions';
+    actions.dataset.col = 'actions';
+    const wrap = document.createElement('div');
+    wrap.className = 'inline-actions';
     if (user.id !== me.id) {
-      actions.append(
+      wrap.append(
         actionButton('Restablecer contraseña', async () => {
           if (!confirm(`¿Generar una nueva contraseña temporal para ${user.email}?`)) throw new Error('');
           const data = await api(`/api/v1/users/${user.id}/reset-password`, { method: 'POST' });
@@ -57,12 +79,14 @@ function render(users) {
         actionButton('Eliminar', async () => {
           if (!confirm(`¿Eliminar a ${user.email}? Esta acción no se puede deshacer.`)) throw new Error('');
           await api(`/api/v1/users/${user.id}`, { method: 'DELETE' });
-        })
+        }, 'danger-button')
       );
     } else {
-      actions.textContent = '(tu usuario)';
+      wrap.textContent = 'Tu usuario';
     }
-    row.appendChild(actions);
+    actions.appendChild(wrap);
+
+    row.append(emailCell, roleCell, statusCell, actions);
     body.appendChild(row);
   });
 }
