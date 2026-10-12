@@ -1,5 +1,12 @@
 const { pool } = require('../config/database');
 
+// Bodegas que no deben mostrarse nunca. Se pueden cambiar con la variable de
+// entorno EXCLUDED_WAREHOUSES (por ejemplo "8,25"). Solo se aceptan enteros.
+const EXCLUDED_WAREHOUSES = (process.env.EXCLUDED_WAREHOUSES ?? '8,25')
+  .split(',')
+  .map((value) => Number(value.trim()))
+  .filter((value) => Number.isInteger(value) && value > 0);
+
 // Dentro de cada artículo, las bodegas se ordenan de mayor a menor existencia.
 // El último criterio (m.cve_alm) mantiene estable el orden entre páginas.
 function buildOrderBy(sort, direction) {
@@ -19,6 +26,9 @@ async function findInventory(filters) {
   // Solo se muestran registros con existencia mayor a cero.
   const conditions = ['m.exist > 0'];
   const values = [];
+  if (EXCLUDED_WAREHOUSES.length) {
+    conditions.push(`m.cve_alm NOT IN (${EXCLUDED_WAREHOUSES.join(', ')})`);
+  }
 
   if (filters.search) {
     values.push(`%${filters.search}%`);

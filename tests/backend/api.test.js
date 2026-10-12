@@ -55,7 +55,7 @@ before(async () => {
   `, [testEmail, passwordHash]);
   await pool.query(`
     INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
-    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA')
+    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA'), ('TEST-004', 'Articulo en bodegas excluidas', 'PRUEBAS', 'PZA')
     ON CONFLICT (cve_art) DO NOTHING
   `);
   await pool.query(`
@@ -66,7 +66,10 @@ before(async () => {
       ('TEST-003', 93, 'A', 'BODEGA-93', 100),
       ('TEST-003', 94, 'A', 'BODEGA-94', 12000),
       ('TEST-003', 95, 'A', 'BODEGA-95', 0),
-      ('TEST-003', 96, 'A', 'BODEGA-96', 500)
+      ('TEST-003', 96, 'A', 'BODEGA-96', 500),
+      ('TEST-004', 8, 'A', 'BODEGA-8', 10),
+      ('TEST-004', 25, 'A', 'BODEGA-25', 10),
+      ('TEST-004', 97, 'A', 'BODEGA-97', 10)
     ON CONFLICT (cve_art, cve_alm) DO UPDATE SET status = EXCLUDED.status, exist = EXCLUDED.exist
   `);
   server = app.listen(0);
@@ -244,4 +247,16 @@ test('CP-31 los registros con existencia en cero no aparecen en el listado', asy
 test('CP-32 las bodegas de un artículo salen de mayor a menor existencia', async () => {
   const { body } = await request('/api/v1/inventory?search=TEST-003');
   assert.deepEqual(body.items.map((item) => Number(item.stock)), [12000, 500, 100]);
+});
+
+test('CP-33 las bodegas 8 y 25 no aparecen en el listado', async () => {
+  const { body } = await request('/api/v1/inventory?search=TEST-004');
+  assert.deepEqual(body.items.map((item) => item.warehouse), [97]);
+});
+
+test('CP-34 filtrar directamente por bodega 8 o 25 no devuelve registros', async () => {
+  const bodega8 = await request('/api/v1/inventory?warehouse=8');
+  const bodega25 = await request('/api/v1/inventory?warehouse=25');
+  assert.equal(bodega8.body.items.length, 0);
+  assert.equal(bodega25.body.items.length, 0);
 });
