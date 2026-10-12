@@ -12,7 +12,7 @@ const filtersSchema = z.object({
   page: z.coerce.number().int().min(1).max(100000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   sort: z.enum(['article', 'description', 'warehouse', 'stock']).default('article'),
-  direction: z.enum(['asc', 'desc']).default('asc')
+  direction: z.enum(['asc', 'desc']).optional()
 });
 
 router.get('/', requireAuth, async (request, response, next) => {

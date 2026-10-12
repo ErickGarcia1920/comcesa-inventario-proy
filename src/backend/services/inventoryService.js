@@ -1,14 +1,23 @@
 const { pool } = require('../config/database');
 
-const sortableFields = {
-  article: 'i.cve_art',
-  description: 'i.descr',
-  warehouse: 'm.cve_alm',
-  stock: 'm.exist'
-};
+// Dentro de cada artículo, las bodegas se ordenan de mayor a menor existencia.
+// El último criterio (m.cve_alm) mantiene estable el orden entre páginas.
+function buildOrderBy(sort, direction) {
+  switch (sort) {
+    case 'description':
+      return 'i.descr ASC, i.cve_art ASC, m.exist DESC, m.cve_alm ASC';
+    case 'warehouse':
+      return 'm.cve_alm ASC, m.exist DESC, i.cve_art ASC';
+    case 'stock':
+      return `m.exist ${direction === 'asc' ? 'ASC' : 'DESC'}, i.cve_art ASC, m.cve_alm ASC`;
+    default:
+      return 'i.cve_art ASC, m.exist DESC, m.cve_alm ASC';
+  }
+}
 
 async function findInventory(filters) {
-  const conditions = [];
+  // Solo se muestran registros con existencia mayor a cero.
+  const conditions = ['m.exist > 0'];
   const values = [];
 
   if (filters.search) {
@@ -29,8 +38,7 @@ async function findInventory(filters) {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const orderBy = sortableFields[filters.sort] || sortableFields.article;
-  const direction = filters.direction === 'desc' ? 'DESC' : 'ASC';
+  const orderBy = buildOrderBy(filters.sort, filters.direction);
   const offset = (filters.page - 1) * filters.limit;
 
   const countResult = await pool.query(`
@@ -54,7 +62,7 @@ async function findInventory(filters) {
     FROM inve i
     INNER JOIN mult m ON m.cve_art = i.cve_art
     ${where}
-    ORDER BY ${orderBy} ${direction}
+    ORDER BY ${orderBy}
     LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
   `, dataValues);
 
