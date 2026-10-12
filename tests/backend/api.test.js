@@ -55,13 +55,19 @@ before(async () => {
   `, [testEmail, passwordHash]);
   await pool.query(`
     INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
-    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA')
+    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA')
     ON CONFLICT (cve_art) DO NOTHING
   `);
   await pool.query(`
     INSERT INTO mult (cve_art, cve_alm, status, ctrl_alm, exist)
-    VALUES ('TEST-001', 91, 'A', 'BODEGA-PRUEBA', 15), ('TEST-002', 92, 'I', 'BODEGA-INACTIVA', 0)
-    ON CONFLICT (cve_art, cve_alm) DO NOTHING
+    VALUES
+      ('TEST-001', 91, 'A', 'BODEGA-PRUEBA', 15),
+      ('TEST-002', 92, 'I', 'BODEGA-INACTIVA', 5),
+      ('TEST-003', 93, 'A', 'BODEGA-93', 100),
+      ('TEST-003', 94, 'A', 'BODEGA-94', 12000),
+      ('TEST-003', 95, 'A', 'BODEGA-95', 0),
+      ('TEST-003', 96, 'A', 'BODEGA-96', 500)
+    ON CONFLICT (cve_art, cve_alm) DO UPDATE SET status = EXCLUDED.status, exist = EXCLUDED.exist
   `);
   server = app.listen(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
@@ -226,4 +232,16 @@ test('CP-29 sesión cerrada no accede al inventario', async () => {
 test('CP-30 filtros combinados funcionan', async () => {
   const { response, body } = await request('/api/v1/inventory?search=TEST&warehouse=91&status=A');
   assert.equal(response.status, 200); assert.ok(body.items.every((item) => item.warehouse === 91 && item.status === 'A'));
+});
+
+test('CP-31 los registros con existencia en cero no aparecen en el listado', async () => {
+  const { body } = await request('/api/v1/inventory?search=TEST-003');
+  assert.ok(body.items.length > 0);
+  assert.ok(body.items.every((item) => Number(item.stock) > 0));
+  assert.equal(body.items.some((item) => item.warehouse === 95), false);
+});
+
+test('CP-32 las bodegas de un artículo salen de mayor a menor existencia', async () => {
+  const { body } = await request('/api/v1/inventory?search=TEST-003');
+  assert.deepEqual(body.items.map((item) => Number(item.stock)), [12000, 500, 100]);
 });
