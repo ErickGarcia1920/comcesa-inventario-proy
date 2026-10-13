@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=4">
+  <link rel="stylesheet" href="/styles.css?v=5">
 </head>
 <body>
   <main class="app-view">
@@ -38,11 +38,14 @@
         <div class="filter-field field-mid"><label for="sort">Ordenar por</label><select id="sort" name="sort"><option value="article">Artículo</option><option value="description">Descripción</option><option value="warehouse">Bodega</option><option value="stock">Existencia (mayor a menor)</option></select></div>
         <button class="primary-button filter-button" type="submit">Consultar <span aria-hidden="true">↗</span></button>
       </form>
-      <div class="results-header"><div><strong id="result-count">0</strong> registros encontrados</div><p id="results-message" class="form-message" role="status" aria-live="polite"></p></div>
+      <div class="results-header">
+        <div class="results-info"><div><strong id="result-count">0</strong> registros encontrados</div><p id="results-message" class="form-message" role="status" aria-live="polite"></p></div>
+        <button id="export-button" class="ghost-button export-button" type="button" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg><span id="export-label">Descargar Excel</span></button>
+      </div>
       <div class="table-frame"><div class="table-scroll"><table class="stack-table"><thead><tr><th>Artículo</th><th>Descripción</th><th>Línea</th><th>Bodega</th><th>Estado</th><th class="numeric">Existencia</th></tr></thead><tbody id="inventory-body"></tbody></table><div id="empty-state" class="empty-state" hidden>No encontramos artículos con esos filtros. Prueba con otra clave o quita algún filtro.</div></div></div>
       <div class="pagination"><button id="previous-page" class="page-button" type="button" disabled>← Anterior</button><span id="page-label">Página 1 de 1</span><button id="next-page" class="page-button" type="button" disabled>Siguiente →</button></div>
     </div>
   </main>
-  <script src="/inventory.js?v=4" defer></script>
+  <script src="/inventory.js?v=5" defer></script>
 </body>
 </html>

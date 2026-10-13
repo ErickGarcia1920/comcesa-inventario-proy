@@ -12,6 +12,7 @@ process.env.REDIS_URL ||= 'redis://localhost:6379';
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
 const bcrypt = require('bcryptjs');
+const ExcelJS = require('exceljs');
 const { pool } = require('../../src/backend/config/database');
 const { ensureDatabaseSchema } = require('../../src/backend/config/schema');
 const { redis } = require('../../src/backend/config/redis');
@@ -273,4 +274,49 @@ test('CP-35 la busqueda por rango de clave incluye ambos extremos', async () => 
 test('CP-36 el rango funciona con minusculas y con los extremos invertidos', async () => {
   const { body } = await request('/api/v1/inventory?articleFrom=test-r02&articleTo=test-r01');
   assert.deepEqual(body.items.map((item) => item.article), ['TEST-R01', 'TEST-R02']);
+});
+
+async function downloadExcel(query) {
+  const response = await fetch(`${baseUrl}/api/v1/inventory/export${query}`, { headers: { cookie: sessionCookie } });
+  const buffer = Buffer.from(await response.arrayBuffer());
+  return { response, buffer };
+}
+
+test('CP-37 la descarga de Excel exige autenticación', async () => {
+  const response = await fetch(`${baseUrl}/api/v1/inventory/export`);
+  assert.equal(response.status, 401);
+});
+
+test('CP-38 la descarga de Excel respeta los filtros y devuelve un archivo válido', async () => {
+  const { response, buffer } = await downloadExcel('?search=TEST-003');
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /spreadsheetml\.sheet/);
+  assert.match(response.headers.get('content-disposition'), /attachment; filename="inventario_.*\.xlsx"/);
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.getWorksheet('Inventario');
+  assert.ok(workbook.getWorksheet('Filtros'));
+  assert.equal(sheet.getCell(1, 1).value, 'Artículo');
+  const dataRows = [];
+  sheet.eachRow((row, number) => { if (number > 1) dataRows.push({ article: row.getCell(1).value, stock: row.getCell(8).value }); });
+  assert.deepEqual(dataRows, [
+    { article: 'TEST-003', stock: 12000 },
+    { article: 'TEST-003', stock: 500 },
+    { article: 'TEST-003', stock: 100 }
+  ]);
+});
+
+test('CP-39 el Excel excluye bodegas ocultas y guarda las claves como texto', async () => {
+  const { buffer } = await downloadExcel('?search=TEST-004');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.getWorksheet('Inventario');
+  assert.equal(sheet.rowCount, 2);
+  assert.equal(sheet.getCell(2, 5).value, 97);
+  assert.equal(typeof sheet.getCell(2, 1).value, 'string');
+});
+
+test('CP-40 la descarga de Excel rechaza filtros inválidos', async () => {
+  const { response } = await downloadExcel('?warehouse=abc');
+  assert.equal(response.status, 400);
 });

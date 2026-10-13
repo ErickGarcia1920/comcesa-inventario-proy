@@ -22,7 +22,7 @@ function buildOrderBy(sort, direction) {
   }
 }
 
-async function findInventory(filters) {
+function buildFilter(filters) {
   // Solo se muestran registros con existencia mayor a cero.
   const conditions = ['m.exist > 0'];
   const values = [];
@@ -59,6 +59,21 @@ async function findInventory(filters) {
   }
 
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  return { where, values };
+}
+
+const SELECT_COLUMNS = `
+      i.cve_art AS article,
+      i.descr AS description,
+      i.lin_prod AS line,
+      i.uni_med AS unit,
+      m.cve_alm AS warehouse,
+      m.status,
+      m.ctrl_alm AS warehouse_name,
+      m.exist AS stock`;
+
+async function findInventory(filters) {
+  const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
   const offset = (filters.page - 1) * filters.limit;
 
@@ -71,15 +86,7 @@ async function findInventory(filters) {
 
   const dataValues = [...values, filters.limit, offset];
   const result = await pool.query(`
-    SELECT
-      i.cve_art AS article,
-      i.descr AS description,
-      i.lin_prod AS line,
-      i.uni_med AS unit,
-      m.cve_alm AS warehouse,
-      m.status,
-      m.ctrl_alm AS warehouse_name,
-      m.exist AS stock
+    SELECT${SELECT_COLUMNS}
     FROM inve i
     INNER JOIN mult m ON m.cve_art = i.cve_art
     ${where}
@@ -96,4 +103,20 @@ async function findInventory(filters) {
   };
 }
 
-module.exports = { findInventory };
+// Todas las filas que cumplen los filtros (sin paginar), para descargar en Excel.
+// Se piden maxRows + 1 filas para poder detectar que se pasó del límite.
+async function findInventoryForExport(filters, maxRows) {
+  const { where, values } = buildFilter(filters);
+  const orderBy = buildOrderBy(filters.sort, filters.direction);
+  const result = await pool.query(`
+    SELECT${SELECT_COLUMNS}
+    FROM inve i
+    INNER JOIN mult m ON m.cve_art = i.cve_art
+    ${where}
+    ORDER BY ${orderBy}
+    LIMIT $${values.length + 1}
+  `, [...values, maxRows + 1]);
+  return result.rows;
+}
+
+module.exports = { findInventory, findInventoryForExport };

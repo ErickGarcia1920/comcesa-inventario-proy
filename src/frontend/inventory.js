@@ -2,6 +2,8 @@ const filtersForm = document.querySelector('#filters-form');
 const inventoryBody = document.querySelector('#inventory-body');
 const emptyState = document.querySelector('#empty-state');
 const resultsMessage = document.querySelector('#results-message');
+const exportButton = document.querySelector('#export-button');
+const exportLabel = document.querySelector('#export-label');
 const state = { page: 1, totalPages: 1 };
 
 async function apiRequest(url, options = {}) {
@@ -21,6 +23,7 @@ function queryString() {
 function renderInventory(data) {
   inventoryBody.replaceChildren();
   document.querySelector('#result-count').textContent = data.total;
+  exportButton.disabled = data.total === 0;
   state.totalPages = Math.max(data.totalPages, 1);
   document.querySelector('#page-label').textContent = `Página ${data.page} de ${state.totalPages}`;
   document.querySelector('#previous-page').disabled = data.page <= 1;
@@ -73,6 +76,41 @@ async function initialize() {
   } catch (error) { if (error.message === 'UNAUTHENTICATED') window.location.replace('/login'); else resultsMessage.textContent = error.message; }
 }
 
+// Descarga en Excel con los filtros que estan en pantalla (sin paginar).
+async function exportExcel() {
+  const query = queryString();
+  query.delete('page');
+  query.delete('limit');
+  exportButton.disabled = true;
+  exportLabel.textContent = 'Preparando archivo...';
+  resultsMessage.textContent = '';
+  try {
+    const response = await fetch(`/api/v1/inventory/export?${query}`, { credentials: 'same-origin' });
+    if (response.status === 401) { window.location.replace('/login'); return; }
+    if (!response.ok) {
+      let message = 'No fue posible generar el archivo de Excel';
+      try { const body = await response.json(); if (body.message) message = body.message; } catch { /* sin detalle */ }
+      throw new Error(message);
+    }
+    const blob = await response.blob();
+    const match = (response.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = match ? match[1] : 'inventario.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (error) {
+    resultsMessage.textContent = error.message;
+  } finally {
+    exportButton.disabled = false;
+    exportLabel.textContent = 'Descargar Excel';
+  }
+}
+
+exportButton.addEventListener('click', exportExcel);
 filtersForm.addEventListener('submit', (event) => { event.preventDefault(); state.page = 1; loadInventory(); });
 document.querySelector('#previous-page').addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadInventory(); } });
 document.querySelector('#next-page').addEventListener('click', () => { if (state.page < state.totalPages) { state.page += 1; loadInventory(); } });
