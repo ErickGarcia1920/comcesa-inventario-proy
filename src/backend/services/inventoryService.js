@@ -12,13 +12,13 @@ const EXCLUDED_WAREHOUSES = (process.env.EXCLUDED_WAREHOUSES ?? '8,25')
 function buildOrderBy(sort, direction) {
   switch (sort) {
     case 'description':
-      return 'i.descr ASC, i.cve_art ASC, m.exist DESC, m.cve_alm ASC';
+      return 'i.descr ASC, i.cve_art COLLATE "C" ASC, m.exist DESC, m.cve_alm ASC';
     case 'warehouse':
-      return 'm.cve_alm ASC, m.exist DESC, i.cve_art ASC';
+      return 'm.cve_alm ASC, m.exist DESC, i.cve_art COLLATE "C" ASC';
     case 'stock':
-      return `m.exist ${direction === 'asc' ? 'ASC' : 'DESC'}, i.cve_art ASC, m.cve_alm ASC`;
+      return `m.exist ${direction === 'asc' ? 'ASC' : 'DESC'}, i.cve_art COLLATE "C" ASC, m.cve_alm ASC`;
     default:
-      return 'i.cve_art ASC, m.exist DESC, m.cve_alm ASC';
+      return 'i.cve_art COLLATE "C" ASC, m.exist DESC, m.cve_alm ASC';
   }
 }
 
@@ -33,6 +33,17 @@ async function findInventory(filters) {
   if (filters.search) {
     values.push(`%${filters.search}%`);
     conditions.push(`(i.cve_art ILIKE $${values.length} OR i.descr ILIKE $${values.length})`);
+  }
+  let articleFrom = (filters.articleFrom || '').toUpperCase();
+  let articleTo = (filters.articleTo || '').toUpperCase();
+  if (articleFrom && articleTo && articleFrom > articleTo) [articleFrom, articleTo] = [articleTo, articleFrom];
+  if (articleFrom) {
+    values.push(articleFrom);
+    conditions.push(`UPPER(i.cve_art) COLLATE "C" >= $${values.length}`);
+  }
+  if (articleTo) {
+    values.push(articleTo);
+    conditions.push(`UPPER(i.cve_art) COLLATE "C" <= $${values.length}`);
   }
   if (filters.warehouse !== undefined) {
     values.push(filters.warehouse);

@@ -6,6 +6,8 @@ const { findInventory } = require('../services/inventoryService');
 const router = express.Router();
 const filtersSchema = z.object({
   search: z.string().trim().max(100).optional(),
+  articleFrom: z.string().trim().max(40).optional(),
+  articleTo: z.string().trim().max(40).optional(),
   warehouse: z.coerce.number().int().positive().optional(),
   line: z.string().trim().max(20).optional(),
   status: z.string().length(1).optional(),

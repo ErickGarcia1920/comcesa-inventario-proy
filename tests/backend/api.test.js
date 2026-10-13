@@ -55,7 +55,8 @@ before(async () => {
   `, [testEmail, passwordHash]);
   await pool.query(`
     INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
-    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA'), ('TEST-004', 'Articulo en bodegas excluidas', 'PRUEBAS', 'PZA')
+    VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA'), ('TEST-004', 'Articulo en bodegas excluidas', 'PRUEBAS', 'PZA'),
+      ('TEST-R01', 'Rango uno', 'PRUEBAS', 'PZA'), ('TEST-R02', 'Rango dos', 'PRUEBAS', 'PZA'), ('TEST-R03', 'Rango tres', 'PRUEBAS', 'PZA')
     ON CONFLICT (cve_art) DO NOTHING
   `);
   await pool.query(`
@@ -69,7 +70,10 @@ before(async () => {
       ('TEST-003', 96, 'A', 'BODEGA-96', 500),
       ('TEST-004', 8, 'A', 'BODEGA-8', 10),
       ('TEST-004', 25, 'A', 'BODEGA-25', 10),
-      ('TEST-004', 97, 'A', 'BODEGA-97', 10)
+      ('TEST-004', 97, 'A', 'BODEGA-97', 10),
+      ('TEST-R01', 98, 'A', 'BODEGA-98', 1),
+      ('TEST-R02', 98, 'A', 'BODEGA-98', 1),
+      ('TEST-R03', 98, 'A', 'BODEGA-98', 1)
     ON CONFLICT (cve_art, cve_alm) DO UPDATE SET status = EXCLUDED.status, exist = EXCLUDED.exist
   `);
   server = app.listen(0);
@@ -259,4 +263,14 @@ test('CP-34 filtrar directamente por bodega 8 o 25 no devuelve registros', async
   const bodega25 = await request('/api/v1/inventory?warehouse=25');
   assert.equal(bodega8.body.items.length, 0);
   assert.equal(bodega25.body.items.length, 0);
+});
+
+test('CP-35 la busqueda por rango de clave incluye ambos extremos', async () => {
+  const { body } = await request('/api/v1/inventory?articleFrom=TEST-R01&articleTo=TEST-R02');
+  assert.deepEqual(body.items.map((item) => item.article), ['TEST-R01', 'TEST-R02']);
+});
+
+test('CP-36 el rango funciona con minusculas y con los extremos invertidos', async () => {
+  const { body } = await request('/api/v1/inventory?articleFrom=test-r02&articleTo=test-r01');
+  assert.deepEqual(body.items.map((item) => item.article), ['TEST-R01', 'TEST-R02']);
 });

@@ -14,7 +14,7 @@ async function apiRequest(url, options = {}) {
 function queryString() {
   const values = new FormData(filtersForm);
   const query = new URLSearchParams({ page: String(state.page), limit: '20', sort: values.get('sort') || 'article' });
-  ['search', 'warehouse', 'line', 'status'].forEach((key) => { const value = String(values.get(key) || '').trim(); if (value) query.set(key, value); });
+  ['search', 'articleFrom', 'articleTo', 'warehouse', 'line', 'status'].forEach((key) => { const value = String(values.get(key) || '').trim(); if (value) query.set(key, value); });
   return query;
 }
 

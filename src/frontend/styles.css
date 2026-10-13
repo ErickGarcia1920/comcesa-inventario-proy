@@ -89,6 +89,14 @@ input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb
 .results-header strong { color: var(--navy); font-size: 1.3rem; }
 .results-header .form-message { margin: 0; }
 
+/* Filtros del inventario: buscar, rango de clave y filtros en dos filas */
+#filters-form { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+#filters-form .search-field, #filters-form .range-field { grid-column: span 4; }
+#filters-form .field-narrow { grid-column: span 2; }
+#filters-form .field-mid, #filters-form .filter-button { grid-column: span 3; }
+.range-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .5rem; align-items: center; }
+.range-sep { color: var(--muted); font-size: .9rem; }
+
 /* Tabla */
 .table-frame { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .table-scroll { overflow-x: auto; }
@@ -125,6 +133,10 @@ th.numeric { text-align: right; }
   .filters-panel { grid-template-columns: repeat(4, 1fr); }
   .search-field { grid-column: span 2; }
   .filter-button { grid-column: span 2; }
+  #filters-form { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #filters-form .search-field, #filters-form .range-field { grid-column: span 2; }
+  #filters-form .field-narrow, #filters-form .field-mid { grid-column: span 1; }
+  #filters-form .filter-button { grid-column: 1 / -1; }
   .filters-panel--users { grid-template-columns: 1fr 1fr; }
   .filters-panel--users .search-field { grid-column: 1 / -1; }
   .user-email { display: none; }
@@ -169,6 +181,8 @@ th.numeric { text-align: right; }
 
 @media (max-width: 720px) {
   .filters-panel { grid-template-columns: 1fr 1fr; padding: 1rem; gap: .7rem; }
+  #filters-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #filters-form .search-field, #filters-form .range-field, #filters-form .filter-button { grid-column: 1 / -1; }
   .search-field, .filter-button { grid-column: 1 / -1; }
   .page-heading { align-items: flex-start; flex-direction: column; gap: .8rem; }
   .results-header { align-items: flex-start; flex-direction: column; gap: .2rem; }
