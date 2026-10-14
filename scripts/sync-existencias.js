@@ -41,7 +41,7 @@ function sqlConfig() {
 async function main() {
   const sqlPool = await sql.connect(sqlConfig());
   try {
-    const { recordset } = await sqlPool.request().query('SELECT CVE_ART, CVE_ALM, STATUS, CTRL_ALM, EXIST FROM dbo.[MULT]');
+    const { recordset } = await sqlPool.request().query('SELECT CVE_ART, CVE_ALM, STATUS, CTRL_ALM, EXIST FROM dbo.[MULT01]');
     const known = new Set((await pool.query('SELECT cve_art FROM inve')).rows.map((r) => r.cve_art));
     const rows = recordset.filter((r) => known.has(r.CVE_ART));
     let touched = 0;
