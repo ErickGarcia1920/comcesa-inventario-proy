@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "COMCESA Inventario",
+  "short_name": "Inventario",
+  "description": "Consulta de existencias por artículo y bodega",
+  "lang": "es",
+  "start_url": "/inventario",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#063b68",
+  "theme_color": "#063b68",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

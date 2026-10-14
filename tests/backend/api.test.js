@@ -320,3 +320,25 @@ test('CP-40 la descarga de Excel rechaza filtros inválidos', async () => {
   const { response } = await downloadExcel('?warehouse=abc');
   assert.equal(response.status, 400);
 });
+
+test('CP-41 la app se puede instalar en el celular: manifiesto, iconos y service worker', async () => {
+  const manifestResponse = await fetch(`${baseUrl}/manifest.webmanifest`);
+  assert.equal(manifestResponse.status, 200);
+  const manifest = await manifestResponse.json();
+  assert.equal(manifest.display, 'standalone');
+  assert.equal(manifest.start_url, '/inventario');
+  assert.ok(manifest.icons.some((icon) => icon.sizes === '192x192'));
+  assert.ok(manifest.icons.some((icon) => icon.sizes === '512x512'));
+  assert.ok(manifest.icons.some((icon) => icon.purpose === 'maskable'));
+  for (const icon of manifest.icons) {
+    const iconResponse = await fetch(`${baseUrl}${icon.src}`);
+    assert.equal(iconResponse.status, 200);
+    assert.match(iconResponse.headers.get('content-type'), /image\/png/);
+  }
+  const worker = await fetch(`${baseUrl}/sw.js`);
+  assert.equal(worker.status, 200);
+  assert.match(worker.headers.get('content-type'), /javascript/);
+  const loginPage = await (await fetch(`${baseUrl}/login`)).text();
+  assert.match(loginPage, /rel="manifest"/);
+  assert.match(loginPage, /apple-touch-icon/);
+});
