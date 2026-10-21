@@ -5,6 +5,7 @@ const helmet = require('helmet');
 const path = require('node:path');
 const pinoHttp = require('pino-http');
 const env = require('./config/env');
+const { loggerOptions } = require('./config/logging');
 const { ensureDatabaseSchema } = require('./config/schema');
 const authRoutes = require('./routes/authRoutes');
 const healthRoutes = require('./routes/healthRoutes');
@@ -27,7 +28,7 @@ app.use(helmet({
 }));
 app.use(cors({ origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()) }));
 app.use(express.json({ limit: '100kb' }));
-app.use(pinoHttp());
+app.use(pinoHttp(loggerOptions));
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 300 }));
 app.use(originGuard);
 
