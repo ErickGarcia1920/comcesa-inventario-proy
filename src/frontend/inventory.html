@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=5">
+  <link rel="stylesheet" href="/styles.css?v=6">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -36,24 +36,38 @@
         </div>
         <div class="status-chip"><span class="status-dot"></span> Sistema operativo</div>
       </div>
+      <details class="notes-panel">
+        <summary>Notas e información de esta pantalla</summary>
+        <ul>
+          <li><strong>Existencia:</strong> unidades disponibles en cada bodega, tomadas de Aspel SAE. Un mismo artículo aparece una vez por bodega, con las bodegas de mayor a menor existencia.</li>
+          <li><strong>Estado:</strong> <em>Activo</em> significa que hay existencia mayor a cero. <em>Sin stock</em> significa existencia en cero o negativa.</li>
+          <li><strong>Actualización:</strong> las existencias se actualizan solas cuando hay movimientos en el inventario (normalmente en menos de un minuto). Artículos, descripciones, nombres de bodega y costos se actualizan una vez al día.</li>
+          <li><strong>Bodegas:</strong> solo se muestran las bodegas autorizadas para consulta.</li>
+          <li><strong>Rango de clave:</strong> incluye los dos extremos y compara letra por letra. Ejemplo: de 8-2163 a 8-2173. Puedes llenar solo uno de los dos.</li>
+          <li><strong>Búsqueda:</strong> escribe parte de la clave o de la descripción; no distingue mayúsculas de minúsculas.</li>
+        </ul>
+        <ul id="admin-notes" hidden>
+          <li><strong>Solo administradores:</strong> el <em>Costo promedio</em> y el <em>Último costo</em> son confidenciales, y la descarga en Excel (que incluye los costos) es exclusiva de administradores. No compartas el archivo con personal no autorizado.</li>
+        </ul>
+      </details>
       <form id="filters-form" class="filters-panel">
         <div class="filter-field search-field"><label for="search">Buscar artículo</label><input id="search" name="search" type="search" maxlength="100" placeholder="Clave o descripción"></div>
-        <div class="filter-field range-field"><label for="article-from">Rango de clave</label><div class="range-inputs"><input id="article-from" name="articleFrom" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Desde, ej. 8-2163" aria-label="Clave desde"><span class="range-sep" aria-hidden="true">a</span><input id="article-to" name="articleTo" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Hasta, ej. 8-2173" aria-label="Clave hasta"></div></div>
-        <div class="filter-field field-narrow"><label for="warehouse">Bodega</label><input id="warehouse" name="warehouse" type="number" min="1" step="1" placeholder="Todas"></div>
+        <div class="filter-field range-field"><label for="article-from">Rango de clave</label><div class="range-inputs"><input id="article-from" name="articleFrom" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Desde" aria-label="Clave desde"><span class="range-sep" aria-hidden="true">a</span><input id="article-to" name="articleTo" type="text" maxlength="40" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Hasta" aria-label="Clave hasta"></div></div>
+        <div class="filter-field field-narrow"><label for="warehouse">Bodega</label><select id="warehouse" name="warehouse"><option value="">Todas</option></select></div>
         <div class="filter-field field-narrow"><label for="line">Línea</label><input id="line" name="line" type="text" maxlength="20" placeholder="Todas"></div>
-        <div class="filter-field field-mid"><label for="status">Estado</label><select id="status" name="status"><option value="">Todos</option><option value="A">Activo</option><option value="I">Inactivo</option></select></div>
+        <div class="filter-field field-mid"><label for="status">Estado</label><select id="status" name="status"><option value="">Todos</option><option value="A">Activo (con stock)</option><option value="I">Sin stock</option></select></div>
         <div class="filter-field field-mid"><label for="sort">Ordenar por</label><select id="sort" name="sort"><option value="article">Artículo</option><option value="description">Descripción</option><option value="warehouse">Bodega</option><option value="stock">Existencia (mayor a menor)</option></select></div>
         <button class="primary-button filter-button" type="submit">Consultar <span aria-hidden="true">↗</span></button>
       </form>
       <div class="results-header">
         <div class="results-info"><div><strong id="result-count">0</strong> registros encontrados</div><p id="results-message" class="form-message" role="status" aria-live="polite"></p></div>
-        <button id="export-button" class="ghost-button export-button" type="button" disabled><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg><span id="export-label">Descargar Excel</span></button>
+        <button id="export-button" class="ghost-button export-button" type="button" disabled hidden><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg><span id="export-label">Descargar Excel</span></button>
       </div>
-      <div class="table-frame"><div class="table-scroll"><table class="stack-table"><thead><tr><th>Artículo</th><th>Descripción</th><th>Línea</th><th>Bodega</th><th>Estado</th><th class="numeric">Existencia</th></tr></thead><tbody id="inventory-body"></tbody></table><div id="empty-state" class="empty-state" hidden>No encontramos artículos con esos filtros. Prueba con otra clave o quita algún filtro.</div></div></div>
+      <div class="table-frame"><div class="table-scroll"><table id="inventory-table" class="stack-table"><thead><tr><th>Artículo</th><th>Descripción</th><th>Línea</th><th>Bodega</th><th>Estado</th><th class="numeric">Existencia</th><th class="numeric admin-col" hidden>Costo promedio</th><th class="numeric admin-col" hidden>Último costo</th></tr></thead><tbody id="inventory-body"></tbody></table><div id="empty-state" class="empty-state" hidden>No encontramos artículos con esos filtros. Prueba con otra clave o quita algún filtro.</div></div></div>
       <div class="pagination"><button id="previous-page" class="page-button" type="button" disabled>← Anterior</button><span id="page-label">Página 1 de 1</span><button id="next-page" class="page-button" type="button" disabled>Siguiente →</button></div>
     </div>
   </main>
-  <script src="/inventory.js?v=5" defer></script>
+  <script src="/inventory.js?v=6" defer></script>
   <script src="/pwa.js" defer></script>
 </body>
 </html>

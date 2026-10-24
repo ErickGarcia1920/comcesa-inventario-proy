@@ -17,6 +17,7 @@ const path = require('node:path');
 const sql = require('mssql');
 const { pool } = require('../src/backend/config/database');
 const { createWatcher } = require('./lib/existencias-core');
+const { ALLOWED_WAREHOUSES } = require('../src/backend/config/warehouses');
 
 const INTERVAL_MS = Math.max(5, Number(process.env.WATCH_INTERVAL_SECONDS || 20)) * 1000;
 const MULT_TABLE = process.env.ASPEL_MULT_TABLE || 'MULT01';
@@ -85,7 +86,7 @@ async function readSource() {
       sqlPool = candidate;
     }
     const result = await sqlPool.request().query(
-      `SELECT CVE_ART, CVE_ALM, STATUS, CTRL_ALM, EXIST FROM dbo.[${MULT_TABLE}] WITH (NOLOCK)`
+      `SELECT CVE_ART, CVE_ALM, STATUS, CTRL_ALM, EXIST FROM dbo.[${MULT_TABLE}] WITH (NOLOCK) WHERE CVE_ALM IN (${ALLOWED_WAREHOUSES.join(', ')})`
     );
     return result.recordset;
   } catch (error) {
@@ -124,8 +125,8 @@ async function main() {
   process.on('SIGINT', () => shutdown(lock).then(() => process.exit(0)));
   process.on('SIGTERM', () => shutdown(lock).then(() => process.exit(0)));
 
-  log(`Vigilante iniciado. Revisa Aspel (${MULT_TABLE}) cada ${INTERVAL_MS / 1000} s y solo escribe cuando hay movimientos.`);
-  const watcher = createWatcher({ db: pool, readSource });
+  log(`Vigilante iniciado. Revisa Aspel (${MULT_TABLE}, bodegas ${ALLOWED_WAREHOUSES.join(',')}) cada ${INTERVAL_MS / 1000} s y solo escribe cuando hay movimientos.`);
+  const watcher = createWatcher({ db: pool, readSource, warehouses: ALLOWED_WAREHOUSES });
   let failures = 0;
   let lastError = '';
   let writtenThisHour = 0;

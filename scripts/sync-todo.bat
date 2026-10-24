@@ -11,6 +11,9 @@ call :correr scripts\sync-aspel.js
 if errorlevel 1 goto fallo
 call :correr scripts\sync-precios.js
 if errorlevel 1 goto fallo
+echo [%time%] scripts\sync-catalogos.js (nombres de bodegas y costos) >> "%LOG%"
+"%NODE%" scripts\sync-catalogos.js >> "%LOG%" 2>&1
+if errorlevel 1 echo [%time%] AVISO: sync-catalogos termino con avisos, revisa las lineas de arriba >> "%LOG%"
 echo ===== Fin OK %date% %time% ===== >> "%LOG%"
 exit /b 0
 

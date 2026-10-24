@@ -165,3 +165,19 @@ test('protección: si Aspel devuelve muy pocas filas no se borra nada', async ()
   assert.equal(result.removed, 0);
   assert.equal(await stockOf('A1', 1000), 1);
 });
+
+test('solo se vigilan las bodegas autorizadas: las demás no se leen ni se tocan', async () => {
+  const { rows } = await pool.query('SELECT cve_art, cve_alm, status, ctrl_alm, exist FROM mult WHERE cve_alm = 1');
+  const source = rows.map((r) => src(r.cve_art, r.cve_alm, Number(r.exist), r.status, r.ctrl_alm));
+  const otherRows = (await pool.query('SELECT COUNT(*)::int AS n FROM mult WHERE cve_alm <> 1')).rows[0].n;
+  assert.ok(otherRows > 0);
+
+  const watcher = createWatcher({ db, readSource: async () => source, warehouses: [1], now: () => 0 });
+  let result = await watcher.tick();
+  assert.deepEqual([result.ok, result.written, result.removed], [true, 0, 0]);
+
+  source[0] = src(source[0].CVE_ART, 1, Number(source[0].EXIST) + 7, source[0].STATUS, source[0].CTRL_ALM);
+  result = await watcher.tick();
+  assert.deepEqual([result.ok, result.written, result.removed], [true, 1, 0]);
+  assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM mult WHERE cve_alm <> 1')).rows[0].n, otherRows);
+});

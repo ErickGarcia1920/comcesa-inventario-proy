@@ -59,11 +59,12 @@ function diffRows(previous, sourceRows) {
   return { changed, removed, next };
 }
 
-async function loadDbSnapshot(db) {
-  const [mult, inve] = await Promise.all([
-    db.query('SELECT cve_art, cve_alm, status, ctrl_alm, exist FROM mult'),
-    db.query('SELECT cve_art FROM inve')
-  ]);
+// Si se indica `warehouses`, solo se consideran esas bodegas (las demás no se vigilan ni se tocan).
+async function loadDbSnapshot(db, warehouses) {
+  const multQuery = warehouses && warehouses.length
+    ? db.query('SELECT cve_art, cve_alm, status, ctrl_alm, exist FROM mult WHERE cve_alm = ANY($1::int[])', [warehouses])
+    : db.query('SELECT cve_art, cve_alm, status, ctrl_alm, exist FROM mult');
+  const [mult, inve] = await Promise.all([multQuery, db.query('SELECT cve_art FROM inve')]);
   const snapshot = new Map();
   for (const raw of mult.rows) {
     const row = normalizeDbRow(raw);
@@ -116,14 +117,14 @@ async function applyChanges(db, changed, removed) {
  * Crea el vigilante. `readSource()` debe devolver las filas de MULT de Aspel (CVE_ART, CVE_ALM,
  * STATUS, CTRL_ALM, EXIST). Cada llamada a tick() hace UNA revisión y devuelve qué pasó.
  */
-function createWatcher({ db, readSource, now = () => Date.now(), reconcileMs = 6 * 60 * 60 * 1000, knownRefreshMs = 5 * 60 * 1000 }) {
+function createWatcher({ db, readSource, warehouses = null, now = () => Date.now(), reconcileMs = 6 * 60 * 60 * 1000, knownRefreshMs = 5 * 60 * 1000 }) {
   let snapshot = null;
   let known = new Set();
   let lastReconcile = 0;
   let lastKnownRefresh = 0;
 
   async function reconcile() {
-    const loaded = await loadDbSnapshot(db);
+    const loaded = await loadDbSnapshot(db, warehouses);
     snapshot = loaded.snapshot;
     known = loaded.known;
     lastReconcile = now();

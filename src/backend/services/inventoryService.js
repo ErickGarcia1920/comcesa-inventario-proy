@@ -1,11 +1,5 @@
 const { pool } = require('../config/database');
-
-// Bodegas que no deben mostrarse nunca. Se pueden cambiar con la variable de
-// entorno EXCLUDED_WAREHOUSES (por ejemplo "8,25"). Solo se aceptan enteros.
-const EXCLUDED_WAREHOUSES = (process.env.EXCLUDED_WAREHOUSES ?? '8,25')
-  .split(',')
-  .map((value) => Number(value.trim()))
-  .filter((value) => Number.isInteger(value) && value > 0);
+const { ALLOWED_WAREHOUSES } = require('../config/warehouses');
 
 // Dentro de cada artículo, las bodegas se ordenan de mayor a menor existencia.
 // El último criterio (m.cve_alm) mantiene estable el orden entre páginas.
@@ -23,12 +17,9 @@ function buildOrderBy(sort, direction) {
 }
 
 function buildFilter(filters) {
-  // Solo se muestran registros con existencia mayor a cero.
-  const conditions = ['m.exist > 0'];
+  // Solo las bodegas autorizadas (la lista son enteros validados, no texto del usuario).
   const values = [];
-  if (EXCLUDED_WAREHOUSES.length) {
-    conditions.push(`m.cve_alm NOT IN (${EXCLUDED_WAREHOUSES.join(', ')})`);
-  }
+  const conditions = [`m.cve_alm IN (${ALLOWED_WAREHOUSES.join(', ')})`];
 
   if (filters.search) {
     values.push(`%${filters.search}%`);
@@ -53,42 +44,44 @@ function buildFilter(filters) {
     values.push(filters.line);
     conditions.push(`i.lin_prod = $${values.length}`);
   }
-  if (filters.status) {
-    values.push(filters.status);
-    conditions.push(`m.status = $${values.length}`);
-  }
+  // Estado según la existencia: A = Activo (con stock), I = Sin stock (cero o negativa).
+  if (filters.status === 'A') conditions.push('m.exist > 0');
+  if (filters.status === 'I') conditions.push('m.exist <= 0');
 
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  return { where, values };
+  return { where: `WHERE ${conditions.join(' AND ')}`, values };
 }
 
-const SELECT_COLUMNS = `
+function selectColumns(includeCosts) {
+  return `
       i.cve_art AS article,
       i.descr AS description,
       i.lin_prod AS line,
       i.uni_med AS unit,
       m.cve_alm AS warehouse,
-      m.status,
-      m.ctrl_alm AS warehouse_name,
-      m.exist AS stock`;
+      a.nombre AS warehouse_name,
+      m.exist AS stock${includeCosts ? `,
+      i.costo_prom AS avg_cost,
+      i.ult_costo AS last_cost` : ''}`;
+}
 
-async function findInventory(filters) {
+const FROM = `
+    FROM inve i
+    INNER JOIN mult m ON m.cve_art = i.cve_art
+    LEFT JOIN almacenes a ON a.cve_alm = m.cve_alm`;
+
+// Los costos solo se piden a la base cuando includeCosts es true (administradores):
+// a un consultor nunca le llegan, ni siquiera ocultos en la respuesta.
+async function findInventory(filters, { includeCosts = false } = {}) {
   const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
   const offset = (filters.page - 1) * filters.limit;
 
-  const countResult = await pool.query(`
-    SELECT COUNT(*)::integer AS total
-    FROM inve i
-    INNER JOIN mult m ON m.cve_art = i.cve_art
-    ${where}
-  `, values);
+  const countResult = await pool.query(`SELECT COUNT(*)::integer AS total ${FROM} ${where}`, values);
 
   const dataValues = [...values, filters.limit, offset];
   const result = await pool.query(`
-    SELECT${SELECT_COLUMNS}
-    FROM inve i
-    INNER JOIN mult m ON m.cve_art = i.cve_art
+    SELECT${selectColumns(includeCosts)}
+    ${FROM}
     ${where}
     ORDER BY ${orderBy}
     LIMIT $${dataValues.length - 1} OFFSET $${dataValues.length}
@@ -103,15 +96,14 @@ async function findInventory(filters) {
   };
 }
 
-// Todas las filas que cumplen los filtros (sin paginar), para descargar en Excel.
+// Todas las filas que cumplen los filtros (sin paginar), para descargar en Excel (solo administradores).
 // Se piden maxRows + 1 filas para poder detectar que se pasó del límite.
 async function findInventoryForExport(filters, maxRows) {
   const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
   const result = await pool.query(`
-    SELECT${SELECT_COLUMNS}
-    FROM inve i
-    INNER JOIN mult m ON m.cve_art = i.cve_art
+    SELECT${selectColumns(true)}
+    ${FROM}
     ${where}
     ORDER BY ${orderBy}
     LIMIT $${values.length + 1}
@@ -119,4 +111,15 @@ async function findInventoryForExport(filters, maxRows) {
   return result.rows;
 }
 
-module.exports = { findInventory, findInventoryForExport };
+// Bodegas autorizadas con su nombre (si todavía no se ha cargado el nombre, name = null).
+async function findWarehouses() {
+  const result = await pool.query(`
+    SELECT w.cve_alm AS id, a.nombre AS name
+    FROM unnest($1::int[]) AS w(cve_alm)
+    LEFT JOIN almacenes a ON a.cve_alm = w.cve_alm
+    ORDER BY w.cve_alm
+  `, [ALLOWED_WAREHOUSES]);
+  return result.rows;
+}
+
+module.exports = { findInventory, findInventoryForExport, findWarehouses };

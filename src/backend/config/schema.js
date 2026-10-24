@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { pool } = require('./database');
 const env = require('./env');
+const { MASTER_EMAILS } = require('./masters');
 
 async function ensureDatabaseSchema() {
   await pool.query(`
@@ -17,12 +18,27 @@ async function ensureDatabaseSchema() {
     );
 
     ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+    -- Bloqueo por intentos fallidos de contraseña
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_attempts INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_level INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_permanently BOOLEAN NOT NULL DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS inve (
       cve_art VARCHAR(20) PRIMARY KEY,
       descr VARCHAR(100) NOT NULL,
       lin_prod VARCHAR(20),
       uni_med VARCHAR(10) NOT NULL
+    );
+
+    -- Costos de Aspel (solo los ven los administradores)
+    ALTER TABLE inve ADD COLUMN IF NOT EXISTS costo_prom NUMERIC(18, 4);
+    ALTER TABLE inve ADD COLUMN IF NOT EXISTS ult_costo NUMERIC(18, 4);
+
+    -- Nombres de las bodegas
+    CREATE TABLE IF NOT EXISTS almacenes (
+      cve_alm INTEGER PRIMARY KEY,
+      nombre VARCHAR(100) NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS mult (
@@ -65,6 +81,12 @@ async function ensureDatabaseSchema() {
       ON CONFLICT (email) DO NOTHING
     `, [env.ADMIN_EMAIL.toLowerCase(), passwordHash]);
   }
+
+  // Los usuarios master siempre son administradores.
+  await pool.query(
+    "UPDATE users SET role = 'admin', updated_at = NOW() WHERE email = ANY($1) AND role <> 'admin'",
+    [MASTER_EMAILS]
+  );
 
   if (env.SEED_DEMO_DATA) {
     await pool.query(`

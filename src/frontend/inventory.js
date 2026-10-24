@@ -4,7 +4,9 @@ const emptyState = document.querySelector('#empty-state');
 const resultsMessage = document.querySelector('#results-message');
 const exportButton = document.querySelector('#export-button');
 const exportLabel = document.querySelector('#export-label');
-const state = { page: 1, totalPages: 1 };
+const inventoryTable = document.querySelector('#inventory-table');
+const warehouseSelect = document.querySelector('#warehouse');
+const state = { page: 1, totalPages: 1, isAdmin: false };
 
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
@@ -20,6 +22,23 @@ function queryString() {
   return query;
 }
 
+function formatMoney(value) {
+  if (value === null || value === undefined) return '—';
+  return Number(value).toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
+
+async function loadWarehouses() {
+  try {
+    const data = await apiRequest('/api/v1/inventory/warehouses');
+    data.warehouses.forEach((warehouse) => {
+      const option = document.createElement('option');
+      option.value = String(warehouse.id);
+      option.textContent = warehouse.name ? `${warehouse.id} · ${warehouse.name}` : `Bodega ${warehouse.id}`;
+      warehouseSelect.appendChild(option);
+    });
+  } catch (error) { if (error.message === 'UNAUTHENTICATED') throw error; }
+}
+
 function renderInventory(data) {
   inventoryBody.replaceChildren();
   document.querySelector('#result-count').textContent = data.total;
@@ -32,15 +51,20 @@ function renderInventory(data) {
   data.items.forEach((item) => {
     const row = document.createElement('tr');
     const stock = Number(item.stock);
-    const statusText = item.status === 'A' ? 'Activo' : (item.status === 'I' ? 'Inactivo' : item.status);
     const cells = [
       { col: 'article', label: '', value: item.article },
       { col: 'description', label: '', value: item.description },
       { col: 'line', label: 'Línea', value: item.line || '—' },
       { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${item.warehouse_name}` : ''}` },
-      { col: 'status', label: '', value: statusText, badge: item.status === 'A' ? 'badge-active' : 'badge-inactive' },
+      { col: 'status', label: '', value: stock > 0 ? 'Activo' : 'Sin stock', badge: stock > 0 ? 'badge-active' : 'badge-nostock' },
       { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' }
     ];
+    if (state.isAdmin) {
+      cells.push(
+        { col: 'avg_cost', label: 'Costo promedio', value: formatMoney(item.avg_cost), className: 'numeric' },
+        { col: 'last_cost', label: 'Último costo', value: formatMoney(item.last_cost), className: 'numeric' }
+      );
+    }
     cells.forEach((cellData) => {
       const cell = document.createElement('td');
       cell.dataset.col = cellData.col;
@@ -71,7 +95,15 @@ async function initialize() {
     const data = await apiRequest('/api/v1/auth/me');
     if (data.user.mustChangePassword) { window.location.replace('/cambiar-password'); return; }
     document.querySelector('#user-email').textContent = data.user.email;
-    if (data.user.role === 'admin') document.querySelector('#admin-link').hidden = false;
+    state.isAdmin = data.user.role === 'admin';
+    if (state.isAdmin) {
+      document.querySelector('#admin-link').hidden = false;
+      exportButton.hidden = false;
+      document.querySelectorAll('.admin-col').forEach((header) => { header.hidden = false; });
+      document.querySelector('#admin-notes').hidden = false;
+      inventoryTable.classList.add('has-costs');
+    }
+    await loadWarehouses();
     await loadInventory();
   } catch (error) { if (error.message === 'UNAUTHENTICATED') window.location.replace('/login'); else resultsMessage.textContent = error.message; }
 }

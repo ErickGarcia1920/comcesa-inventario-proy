@@ -1,6 +1,7 @@
 const { parse } = require('cookie');
 const { pool } = require('../config/database');
 const { SESSION_COOKIE, getSession } = require('../services/sessionService');
+const { isMasterUser } = require('../services/permissions');
 
 // El usuario se vuelve a leer de la base de datos en cada peticion: asi un
 // usuario eliminado, desactivado o con otro rol pierde acceso de inmediato.
@@ -14,7 +15,7 @@ async function loadUser(request) {
   );
   const user = result.rows[0];
   if (!user || !user.active) return null;
-  return { id: user.id, email: user.email, role: user.role, mustChangePassword: user.must_change_password };
+  return { id: user.id, email: user.email, role: user.role, isMaster: isMasterUser(user), mustChangePassword: user.must_change_password };
 }
 
 function buildMiddleware({ allowPasswordPending }) {

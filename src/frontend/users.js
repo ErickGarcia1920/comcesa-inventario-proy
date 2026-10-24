@@ -8,9 +8,10 @@ async function api(url, options = {}) {
   if (response.status === 401) { window.location.replace('/login'); throw new Error('UNAUTHENTICATED'); }
   if (response.status === 403) {
     const data = await response.clone().json().catch(() => ({}));
-    if (data.error === 'PASSWORD_CHANGE_REQUIRED') window.location.replace('/cambiar-password');
-    else window.location.replace('/inventario');
-    throw new Error(data.message || 'Sin permiso');
+    // Sin permisos para la pantalla: se va al inventario. Sin permiso para una acción: solo se avisa.
+    if (data.error === 'PASSWORD_CHANGE_REQUIRED') { window.location.replace('/cambiar-password'); throw new Error(data.message); }
+    if (data.error === 'FORBIDDEN') { window.location.replace('/inventario'); throw new Error(data.message || 'Sin permiso'); }
+    throw new Error(data.message || 'No tienes permiso para hacer esto');
   }
   const data = response.status === 204 ? null : await response.json().catch(() => ({}));
   if (!response.ok) throw new Error((data && data.message) || 'Ocurrió un error');
@@ -42,6 +43,11 @@ function badge(text, kind) {
   return span;
 }
 
+function roleLabel(user) {
+  if (user.is_master) return 'Administrador master';
+  return user.role === 'admin' ? 'Administrador' : 'Consultor';
+}
+
 function render(users) {
   body.replaceChildren();
   users.forEach((user) => {
@@ -54,12 +60,14 @@ function render(users) {
     const roleCell = document.createElement('td');
     roleCell.dataset.col = 'role';
     roleCell.dataset.label = 'Rol';
-    roleCell.textContent = user.role === 'admin' ? 'Administrador' : 'Consulta';
+    roleCell.textContent = roleLabel(user);
 
     const statusCell = document.createElement('td');
     statusCell.dataset.col = 'status';
     statusCell.dataset.label = 'Estado';
-    if (!user.active) statusCell.appendChild(badge('Inactivo', 'badge-inactive'));
+    if (user.lock_state === 'permanent') statusCell.appendChild(badge('Bloqueado: restablecer', 'badge-locked'));
+    else if (user.lock_state === 'temporary') statusCell.appendChild(badge(`Bloqueado ${user.lock_minutes} min`, 'badge-locked'));
+    else if (!user.active) statusCell.appendChild(badge('Inactivo', 'badge-inactive'));
     else if (user.must_change_password) statusCell.appendChild(badge('Debe cambiar contraseña', 'badge-pending'));
     else statusCell.appendChild(badge('Activo', 'badge-active'));
 
@@ -67,22 +75,38 @@ function render(users) {
     actions.dataset.col = 'actions';
     const wrap = document.createElement('div');
     wrap.className = 'inline-actions';
-    if (user.id !== me.id) {
-      wrap.append(
-        actionButton('Restablecer contraseña', async () => {
-          if (!confirm(`¿Generar una nueva contraseña temporal para ${user.email}?`)) throw new Error('');
+    const allowed = user.permissions;
+    if (user.id === me.id) {
+      wrap.textContent = 'Tu usuario';
+    } else {
+      if (allowed.resetPassword) {
+        wrap.append(actionButton('Restablecer contraseña', async () => {
+          if (!confirm(`¿Generar una nueva contraseña temporal para ${user.email}? También se desbloquea su usuario.`)) throw new Error('');
           const data = await api(`/api/v1/users/${user.id}/reset-password`, { method: 'POST' });
           showTemp(user.email, data.tempPassword);
-        }),
-        actionButton(user.active ? 'Desactivar' : 'Activar', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ active: !user.active }) })),
-        actionButton(user.role === 'admin' ? 'Quitar admin' : 'Hacer admin', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: user.role === 'admin' ? 'viewer' : 'admin' }) })),
-        actionButton('Eliminar', async () => {
+        }));
+      }
+      if (allowed.unlock && user.lock_state !== 'none') {
+        wrap.append(actionButton('Desbloquear', () => api(`/api/v1/users/${user.id}/unlock`, { method: 'POST' })));
+      }
+      if (allowed.toggleActive) {
+        wrap.append(actionButton(user.active ? 'Desactivar' : 'Activar', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ active: !user.active }) })));
+      }
+      if (allowed.changeRole) {
+        wrap.append(actionButton(user.role === 'admin' ? 'Quitar admin' : 'Hacer admin', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: user.role === 'admin' ? 'viewer' : 'admin' }) })));
+      }
+      if (allowed.delete) {
+        wrap.append(actionButton('Eliminar', async () => {
           if (!confirm(`¿Eliminar a ${user.email}? Esta acción no se puede deshacer.`)) throw new Error('');
           await api(`/api/v1/users/${user.id}`, { method: 'DELETE' });
-        }, 'danger-button')
-      );
-    } else {
-      wrap.textContent = 'Tu usuario';
+        }, 'danger-button'));
+      }
+      if (!wrap.children.length) {
+        const note = document.createElement('span');
+        note.className = 'muted-text';
+        note.textContent = user.is_master ? 'Protegido (master)' : 'Solo un master puede gestionarlo';
+        wrap.append(note);
+      }
     }
     actions.appendChild(wrap);
 
@@ -113,6 +137,11 @@ document.querySelector('#logout-button').addEventListener('click', async () => {
   try {
     me = (await api('/api/v1/auth/me')).user;
     if (me.role !== 'admin') return window.location.replace('/inventario');
+    // Solo un usuario master puede crear administradores.
+    if (!me.isMaster) document.querySelector('#new-role option[value="admin"]').remove();
+    document.querySelector('#role-hint').textContent = me.isMaster
+      ? 'Como usuario master puedes gestionar consultores y administradores.'
+      : 'Como administrador puedes gestionar consultores. Para crear o cambiar administradores se necesita un usuario master.';
     await load();
   } catch (error) { if (error.message) message.textContent = error.message; }
 })();

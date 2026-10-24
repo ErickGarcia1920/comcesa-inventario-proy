@@ -1,7 +1,8 @@
 const ExcelJS = require('exceljs');
 
 const XLSX_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-const STATUS_LABELS = { A: 'Activo', I: 'Inactivo' };
+// Estado según la existencia: A = Activo (con stock), I = Sin stock.
+const STATUS_LABELS = { A: 'Activo (con stock)', I: 'Sin stock' };
 
 const COLUMNS = [
   { header: 'Artículo', width: 18 },
@@ -10,8 +11,10 @@ const COLUMNS = [
   { header: 'Unidad', width: 9 },
   { header: 'Bodega', width: 9, numeric: true },
   { header: 'Nombre de bodega', width: 22 },
-  { header: 'Estado', width: 11 },
-  { header: 'Existencia', width: 14, numeric: true }
+  { header: 'Estado', width: 12 },
+  { header: 'Existencia', width: 14, numeric: true },
+  { header: 'Costo promedio', width: 16, numeric: true },
+  { header: 'Último costo', width: 16, numeric: true }
 ];
 
 // Fecha y hora de Guatemala, por ejemplo "2026-10-13 14:05".
@@ -71,17 +74,21 @@ async function writeInventoryWorkbook(response, rows, filters) {
       String(item.unit ?? ''),
       Number(item.warehouse),
       String(item.warehouse_name ?? '').trim(),
-      STATUS_LABELS[item.status] || String(item.status ?? ''),
-      stock
+      stock > 0 ? 'Activo' : 'Sin stock',
+      stock,
+      item.avg_cost === null || item.avg_cost === undefined ? null : Number(item.avg_cost),
+      item.last_cost === null || item.last_cost === undefined ? null : Number(item.last_cost)
     ]);
     row.getCell(8).numFmt = Number.isInteger(stock) ? '#,##0' : '#,##0.00##';
+    row.getCell(9).numFmt = '#,##0.00##';
+    row.getCell(10).numFmt = '#,##0.00##';
     row.commit();
   }
   sheet.commit();
 
   // Hoja 2: con qué filtros se generó el archivo.
   const info = workbook.addWorksheet('Filtros');
-  info.columns = [{ width: 26 }, { width: 44 }];
+  info.columns = [{ width: 26 }, { width: 70 }];
   const infoRows = [
     ['Fecha de descarga', stamp],
     ['Búsqueda', filters.search || 'Todos'],
@@ -92,7 +99,8 @@ async function writeInventoryWorkbook(response, rows, filters) {
     ['Estado', STATUS_LABELS[filters.status] || 'Todos'],
     ['Orden', sortLabel(filters)],
     ['Registros exportados', rows.length],
-    ['Nota', 'Solo se incluyen registros con existencia mayor a cero.']
+    ['Nota', 'Incluye solo las bodegas autorizadas. Activo = existencia mayor a cero; Sin stock = existencia en cero o negativa.'],
+    ['Confidencial', 'Este archivo incluye costos: solo debe compartirse con personal autorizado.']
   ];
   for (const [label, value] of infoRows) {
     const row = info.addRow([label, value]);

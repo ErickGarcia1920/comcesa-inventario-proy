@@ -119,6 +119,16 @@ th.numeric { text-align: right; }
 .badge-active { background: var(--success-bg); color: var(--success); }
 .badge-inactive { background: #eaeff3; color: var(--muted); }
 .badge-pending { background: #fff2cf; color: #85600c; }
+.badge-nostock { background: var(--danger-bg); color: var(--danger); }
+.badge-locked { background: #fde4d6; color: #9a3412; }
+.muted-text { color: var(--muted); font-size: .85rem; }
+
+/* Notas informativas (todos los perfiles) */
+.notes-panel { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: .2rem 1.1rem; margin-bottom: 1rem; }
+.notes-panel summary { cursor: pointer; padding: .85rem 0; color: var(--navy); font-weight: 700; font-size: .95rem; }
+.notes-panel ul { margin: 0 0 .9rem; padding-left: 1.2rem; color: #2f4a5e; font-size: .9rem; line-height: 1.55; }
+.notes-panel li + li { margin-top: .35rem; }
+.notes-panel[open] summary { border-bottom: 1px solid var(--line); margin-bottom: .8rem; }
 .empty-state { padding: 3rem 1rem; text-align: center; color: var(--muted); }
 
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1.2rem; padding: 1.2rem 0; color: var(--muted); font-size: .92rem; }
@@ -174,6 +184,11 @@ th.numeric { text-align: right; }
   #inventory-body td[data-col="warehouse"] { grid-area: wh; }
   #inventory-body td[data-col="stock"] { grid-area: stock; text-align: right; font-size: 1.4rem; line-height: 1.1; }
   #inventory-body td[data-col="stock"]::before { font-size: .76rem; }
+
+  .has-costs #inventory-body tr { grid-template-areas: "art art status" "desc desc desc" "line wh stock" "avg avg last"; }
+  #inventory-body td[data-col="avg_cost"] { grid-area: avg; text-align: left; }
+  #inventory-body td[data-col="last_cost"] { grid-area: last; text-align: right; }
+  #inventory-body td[data-col="avg_cost"], #inventory-body td[data-col="last_cost"] { color: var(--ink); font-weight: 600; }
 
   #users-body tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   #users-body td:nth-child(1), #users-body td:nth-child(4) { grid-column: 1 / -1; }

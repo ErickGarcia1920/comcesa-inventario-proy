@@ -8,6 +8,8 @@ process.env.POSTGRES_DB ||= 'comcesa';
 process.env.POSTGRES_USER ||= 'comcesa';
 process.env.POSTGRES_PASSWORD ||= 'test-postgres-password-1234';
 process.env.REDIS_URL ||= 'redis://localhost:6379';
+// Las bodegas de prueba (91 a 98) se autorizan solo en estas pruebas, junto con las 15 reales.
+process.env.ALLOWED_WAREHOUSES = '1,3,4,11,14,15,16,18,20,23,24,28,31,35,36,91,92,93,94,95,96,97,98';
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
@@ -20,6 +22,9 @@ const app = require('../../src/backend/app');
 
 const testEmail = 'automated-test@comcesa.local';
 const testPassword = 'Prueba-segura-2026!';
+const viewerEmail = 'consultor-api-test@comcesa.local';
+const viewerPassword = 'Consultor-prueba-2026!';
+let viewerCookie;
 let server;
 let baseUrl;
 let sessionCookie;
@@ -55,6 +60,11 @@ before(async () => {
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, active = TRUE
   `, [testEmail, passwordHash]);
   await pool.query(`
+    INSERT INTO users (email, password_hash, role, active)
+    VALUES ($1, $2, 'viewer', TRUE)
+    ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, active = TRUE, role = 'viewer'
+  `, [viewerEmail, await bcrypt.hash(viewerPassword, 4)]);
+  await pool.query(`
     INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
     VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA'), ('TEST-004', 'Articulo en bodegas excluidas', 'PRUEBAS', 'PZA'),
       ('TEST-R01', 'Rango uno', 'PRUEBAS', 'PZA'), ('TEST-R02', 'Rango dos', 'PRUEBAS', 'PZA'), ('TEST-R03', 'Rango tres', 'PRUEBAS', 'PZA')
@@ -77,6 +87,8 @@ before(async () => {
       ('TEST-R03', 98, 'A', 'BODEGA-98', 1)
     ON CONFLICT (cve_art, cve_alm) DO UPDATE SET status = EXCLUDED.status, exist = EXCLUDED.exist
   `);
+  await pool.query("UPDATE inve SET costo_prom = 10.5, ult_costo = 12.25 WHERE cve_art = 'TEST-001'");
+  await pool.query("INSERT INTO almacenes (cve_alm, nombre) VALUES (91, 'Bodega de prueba') ON CONFLICT (cve_alm) DO UPDATE SET nombre = EXCLUDED.nombre");
   server = app.listen(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
@@ -84,7 +96,8 @@ before(async () => {
 after(async () => {
   await pool.query('DELETE FROM mult WHERE cve_art LIKE $1', ['TEST-%']);
   await pool.query('DELETE FROM inve WHERE cve_art LIKE $1', ['TEST-%']);
-  await pool.query('DELETE FROM users WHERE email = $1', [testEmail]);
+  await pool.query('DELETE FROM almacenes WHERE cve_alm = 91');
+  await pool.query('DELETE FROM users WHERE email = ANY($1)', [[testEmail, viewerEmail]]);
   server.close();
   await pool.end();
   if (redis.status !== 'wait' && redis.status !== 'end') await redis.quit();
@@ -166,9 +179,14 @@ test('CP-15 filtro por línea funciona', async () => {
   assert.ok(body.items.some((item) => item.line === 'PRUEBAS'));
 });
 
-test('CP-16 filtro por estado funciona', async () => {
-  const { body } = await request('/api/v1/inventory?status=I');
-  assert.ok(body.items.some((item) => item.status === 'I'));
+test('CP-16 filtro por estado: Activo = con stock, Sin stock = existencia en cero', async () => {
+  const active = await request('/api/v1/inventory?status=A');
+  assert.ok(active.body.items.length > 0);
+  assert.ok(active.body.items.every((item) => Number(item.stock) > 0));
+  const noStock = await request('/api/v1/inventory?status=I&search=TEST-003');
+  assert.deepEqual(noStock.body.items.map((item) => item.warehouse), [95]);
+  assert.ok(noStock.body.items.every((item) => Number(item.stock) <= 0));
+  assert.equal((await request('/api/v1/inventory?status=X')).response.status, 400);
 });
 
 test('CP-17 ordenamiento descendente funciona', async () => {
@@ -239,19 +257,19 @@ test('CP-29 sesión cerrada no accede al inventario', async () => {
 
 test('CP-30 filtros combinados funcionan', async () => {
   const { response, body } = await request('/api/v1/inventory?search=TEST&warehouse=91&status=A');
-  assert.equal(response.status, 200); assert.ok(body.items.every((item) => item.warehouse === 91 && item.status === 'A'));
+  assert.equal(response.status, 200); assert.ok(body.items.length > 0); assert.ok(body.items.every((item) => item.warehouse === 91 && Number(item.stock) > 0));
 });
 
-test('CP-31 los registros con existencia en cero no aparecen en el listado', async () => {
+test('CP-31 los registros con existencia en cero SÍ aparecen en el listado', async () => {
   const { body } = await request('/api/v1/inventory?search=TEST-003');
-  assert.ok(body.items.length > 0);
-  assert.ok(body.items.every((item) => Number(item.stock) > 0));
-  assert.equal(body.items.some((item) => item.warehouse === 95), false);
+  const zero = body.items.find((item) => item.warehouse === 95);
+  assert.ok(zero);
+  assert.equal(Number(zero.stock), 0);
 });
 
 test('CP-32 las bodegas de un artículo salen de mayor a menor existencia', async () => {
   const { body } = await request('/api/v1/inventory?search=TEST-003');
-  assert.deepEqual(body.items.map((item) => Number(item.stock)), [12000, 500, 100]);
+  assert.deepEqual(body.items.map((item) => Number(item.stock)), [12000, 500, 100, 0]);
 });
 
 test('CP-33 las bodegas 8 y 25 no aparecen en el listado', async () => {
@@ -302,7 +320,8 @@ test('CP-38 la descarga de Excel respeta los filtros y devuelve un archivo váli
   assert.deepEqual(dataRows, [
     { article: 'TEST-003', stock: 12000 },
     { article: 'TEST-003', stock: 500 },
-    { article: 'TEST-003', stock: 100 }
+    { article: 'TEST-003', stock: 100 },
+    { article: 'TEST-003', stock: 0 }
   ]);
 });
 
@@ -341,4 +360,87 @@ test('CP-41 la app se puede instalar en el celular: manifiesto, iconos y service
   const loginPage = await (await fetch(`${baseUrl}/login`)).text();
   assert.match(loginPage, /rel="manifest"/);
   assert.match(loginPage, /apple-touch-icon/);
+});
+
+async function loginAsViewer() {
+  const response = await fetch(`${baseUrl}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: viewerEmail, password: viewerPassword })
+  });
+  assert.equal(response.status, 200);
+  viewerCookie = response.headers.get('set-cookie').split(';')[0];
+}
+
+async function asViewer(path) {
+  if (!viewerCookie) await loginAsViewer();
+  const response = await fetch(`${baseUrl}${path}`, { headers: { cookie: viewerCookie } });
+  const text = await response.text();
+  let body = text;
+  try { body = text ? JSON.parse(text) : null; } catch {}
+  return { response, body };
+}
+
+test('CP-42 el consultor NO puede descargar Excel y el administrador sí', async () => {
+  const consultor = await asViewer('/api/v1/inventory/export?search=TEST-001');
+  assert.equal(consultor.response.status, 403);
+  const admin = await downloadExcel('?search=TEST-001');
+  assert.equal(admin.response.status, 200);
+});
+
+test('CP-43 el costo promedio y el último costo solo los recibe el administrador', async () => {
+  const admin = await request('/api/v1/inventory?search=TEST-001');
+  const adminItem = admin.body.items.find((item) => item.article === 'TEST-001');
+  assert.equal(Number(adminItem.avg_cost), 10.5);
+  assert.equal(Number(adminItem.last_cost), 12.25);
+
+  const consultor = await asViewer('/api/v1/inventory?search=TEST-001');
+  const viewerItem = consultor.body.items.find((item) => item.article === 'TEST-001');
+  assert.ok(viewerItem);
+  assert.equal(Object.hasOwn(viewerItem, 'avg_cost'), false);
+  assert.equal(Object.hasOwn(viewerItem, 'last_cost'), false);
+  assert.doesNotMatch(JSON.stringify(consultor.body), /10\.5|12\.25|avg_cost|last_cost/);
+});
+
+test('CP-44 el Excel incluye costos y marca Sin stock cuando la existencia es cero', async () => {
+  const { buffer } = await downloadExcel('?search=TEST-001');
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+  const sheet = workbook.getWorksheet('Inventario');
+  assert.equal(sheet.getCell(1, 9).value, 'Costo promedio');
+  assert.equal(sheet.getCell(1, 10).value, 'Último costo');
+  assert.equal(sheet.getCell(2, 9).value, 10.5);
+  assert.equal(sheet.getCell(2, 10).value, 12.25);
+
+  const zero = await downloadExcel('?search=TEST-003&status=I');
+  const zeroBook = new ExcelJS.Workbook();
+  await zeroBook.xlsx.load(zero.buffer);
+  const zeroSheet = zeroBook.getWorksheet('Inventario');
+  assert.equal(zeroSheet.rowCount, 2);
+  assert.equal(zeroSheet.getCell(2, 7).value, 'Sin stock');
+});
+
+test('CP-45 la lista de bodegas trae solo las autorizadas, con su nombre', async () => {
+  const { body } = await request('/api/v1/inventory/warehouses');
+  const ids = body.warehouses.map((warehouse) => warehouse.id);
+  assert.ok(ids.includes(91));
+  assert.equal(ids.includes(8), false);
+  assert.equal(ids.includes(25), false);
+  assert.equal(body.warehouses.find((warehouse) => warehouse.id === 91).name, 'Bodega de prueba');
+  const viewer = await asViewer('/api/v1/inventory/warehouses');
+  assert.equal(viewer.response.status, 200);
+});
+
+test('CP-46 el nombre de la bodega viene de la tabla de almacenes', async () => {
+  const { body } = await request('/api/v1/inventory?search=TEST-001');
+  assert.equal(body.items.find((item) => item.warehouse === 91).warehouse_name, 'Bodega de prueba');
+});
+
+test('CP-47 las bodegas autorizadas por defecto son exactamente las 15 acordadas', () => {
+  const { execFileSync } = require('node:child_process');
+  const output = execFileSync(process.execPath, ['-e', "console.log(JSON.stringify(require('./src/backend/config/warehouses').ALLOWED_WAREHOUSES))"], {
+    cwd: require('node:path').join(__dirname, '..', '..'),
+    env: { ...process.env, ALLOWED_WAREHOUSES: '' }
+  }).toString().trim();
+  assert.deepEqual(JSON.parse(output), [1, 3, 4, 11, 14, 15, 16, 18, 20, 23, 24, 28, 31, 35, 36]);
 });

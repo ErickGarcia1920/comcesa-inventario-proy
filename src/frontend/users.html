@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=3">
+  <link rel="stylesheet" href="/styles.css?v=6">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -27,10 +27,20 @@
       </div>
     </header>
     <div class="content-wrap">
-      <div class="page-heading"><div><h1>Usuarios</h1><p>Crea, desactiva o elimina accesos al portal.</p></div></div>
+      <div class="page-heading"><div><h1>Usuarios</h1><p>Crea, desactiva o elimina accesos al portal. <span id="role-hint"></span></p></div></div>
+      <details class="notes-panel">
+        <summary>Notas sobre perfiles y bloqueos</summary>
+        <ul>
+          <li><strong>Consultor:</strong> solo visualiza el inventario. No ve costos ni descarga Excel.</li>
+          <li><strong>Administrador:</strong> ve costos, descarga Excel y gestiona consultores.</li>
+          <li><strong>Administrador master:</strong> además crea, elimina y cambia a otros administradores. Los usuarios master no se pueden eliminar ni cambiar de rol desde el sistema.</li>
+          <li><strong>Bloqueo por contraseña incorrecta:</strong> 3 intentos fallidos bloquean el usuario 15 minutos; otros 3 fallidos, otros 15 minutos; y a los 3 fallidos siguientes queda bloqueado hasta que un administrador restablezca su contraseña.</li>
+          <li><strong>Restablecer contraseña</strong> genera una contraseña temporal, desbloquea el usuario y obliga a cambiarla al entrar.</li>
+        </ul>
+      </details>
       <form id="create-form" class="filters-panel filters-panel--users">
         <div class="filter-field search-field"><label for="new-email">Correo del nuevo usuario</label><input id="new-email" type="email" required maxlength="254" placeholder="nombre@empresa.com"></div>
-        <div class="filter-field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Consulta</option><option value="admin">Administrador</option></select></div>
+        <div class="filter-field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Consultor</option><option value="admin">Administrador</option></select></div>
         <button class="primary-button filter-button" type="submit">Crear usuario</button>
       </form>
       <div id="temp-box" class="temp-box" hidden>
@@ -42,7 +52,7 @@
       <div class="table-frame"><div class="table-scroll"><table class="stack-table"><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
     </div>
   </main>
-  <script src="/users.js?v=2" defer></script>
+  <script src="/users.js?v=3" defer></script>
   <script src="/pwa.js" defer></script>
 </body>
 </html>
