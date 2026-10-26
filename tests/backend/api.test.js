@@ -8,6 +8,8 @@ process.env.POSTGRES_DB ||= 'comcesa';
 process.env.POSTGRES_USER ||= 'comcesa';
 process.env.POSTGRES_PASSWORD ||= 'test-postgres-password-1234';
 process.env.REDIS_URL ||= 'redis://localhost:6379';
+// Estas pruebas usan contraseña sola; el segundo paso se prueba en mfa.test.js.
+process.env.MFA_REQUIRED = 'false';
 // Las bodegas de prueba (91 a 98) se autorizan solo en estas pruebas, junto con las 15 reales.
 process.env.ALLOWED_WAREHOUSES = '1,3,4,11,14,15,16,18,20,23,24,28,31,35,36,91,92,93,94,95,96,97,98';
 

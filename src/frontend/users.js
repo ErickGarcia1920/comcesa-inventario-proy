@@ -70,6 +70,8 @@ function render(users) {
     else if (!user.active) statusCell.appendChild(badge('Inactivo', 'badge-inactive'));
     else if (user.must_change_password) statusCell.appendChild(badge('Debe cambiar contraseña', 'badge-pending'));
     else statusCell.appendChild(badge('Activo', 'badge-active'));
+    if (!user.mfa_enabled) statusCell.appendChild(badge('Falta configurar 2FA', 'badge-pending'));
+    if (!user.email_domain_ok) statusCell.appendChild(badge('Correo fuera de @comcesa.net', 'badge-locked'));
 
     const actions = document.createElement('td');
     actions.dataset.col = 'actions';
@@ -84,6 +86,12 @@ function render(users) {
           if (!confirm(`¿Generar una nueva contraseña temporal para ${user.email}? También se desbloquea su usuario.`)) throw new Error('');
           const data = await api(`/api/v1/users/${user.id}/reset-password`, { method: 'POST' });
           showTemp(user.email, data.tempPassword);
+        }));
+      }
+      if (allowed.resetPassword && user.mfa_enabled) {
+        wrap.append(actionButton('Restablecer 2FA', async () => {
+          if (!confirm(`¿Quitar el segundo paso de ${user.email}? En su próximo ingreso tendrá que configurarlo de nuevo (por ejemplo, si perdió el celular).`)) throw new Error('');
+          await api(`/api/v1/users/${user.id}/reset-mfa`, { method: 'POST' });
         }));
       }
       if (allowed.unlock && user.lock_state !== 'none') {

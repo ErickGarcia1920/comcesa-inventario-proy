@@ -10,6 +10,7 @@ const { ensureDatabaseSchema } = require('./config/schema');
 const authRoutes = require('./routes/authRoutes');
 const healthRoutes = require('./routes/healthRoutes');
 const inventoryRoutes = require('./routes/inventoryRoutes');
+const mfaRoutes = require('./routes/mfaRoutes');
 const userRoutes = require('./routes/userRoutes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const originGuard = require('./middlewares/originGuard');
@@ -34,6 +35,7 @@ app.use(originGuard);
 
 app.use('/api/v1', healthRoutes);
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/auth/mfa', mfaRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
 app.use('/api/v1/users', userRoutes);
 app.get(['/', '/login'], (request, response) => {

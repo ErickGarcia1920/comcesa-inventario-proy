@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=6">
+  <link rel="stylesheet" href="/styles.css?v=7">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -35,11 +35,13 @@
           <li><strong>Administrador:</strong> ve costos, descarga Excel y gestiona consultores.</li>
           <li><strong>Administrador master:</strong> además crea, elimina y cambia a otros administradores. Los usuarios master no se pueden eliminar ni cambiar de rol desde el sistema.</li>
           <li><strong>Bloqueo por contraseña incorrecta:</strong> 3 intentos fallidos bloquean el usuario 15 minutos; otros 3 fallidos, otros 15 minutos; y a los 3 fallidos siguientes queda bloqueado hasta que un administrador restablezca su contraseña.</li>
+          <li><strong>Correos:</strong> todos los usuarios deben ser de la empresa (<em>nombre@comcesa.net</em>).</li>
+          <li><strong>Verificación en dos pasos (2FA):</strong> es obligatoria para todos. En su primer ingreso cada persona configura Microsoft Authenticator y guarda sus códigos de respaldo. Si pierde el celular, usa <em>Restablecer 2FA</em> y en su próximo ingreso lo configura de nuevo.</li>
           <li><strong>Restablecer contraseña</strong> genera una contraseña temporal, desbloquea el usuario y obliga a cambiarla al entrar.</li>
         </ul>
       </details>
       <form id="create-form" class="filters-panel filters-panel--users">
-        <div class="filter-field search-field"><label for="new-email">Correo del nuevo usuario</label><input id="new-email" type="email" required maxlength="254" placeholder="nombre@empresa.com"></div>
+        <div class="filter-field search-field"><label for="new-email">Correo del nuevo usuario</label><input id="new-email" type="email" required maxlength="254" placeholder="nombre@comcesa.net" pattern="[^@\s]+@[Cc][Oo][Mm][Cc][Ee][Ss][Aa]\.[Nn][Ee][Tt]" title="Solo correos de la empresa: nombre@comcesa.net"></div>
         <div class="filter-field"><label for="new-role">Rol</label><select id="new-role"><option value="viewer">Consultor</option><option value="admin">Administrador</option></select></div>
         <button class="primary-button filter-button" type="submit">Crear usuario</button>
       </form>

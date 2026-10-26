@@ -20,7 +20,8 @@ const updateSchema = z.object({
 }).refine((value) => value.role !== undefined || value.active !== undefined);
 const idSchema = z.string().uuid();
 
-const COLUMNS = 'id, email, role, active, must_change_password, created_at';
+const COMPANY_DOMAIN = '@comcesa.net';
+const COLUMNS = 'id, email, role, active, must_change_password, totp_enabled, created_at';
 const COLUMNS_WITH_LOCK = `${COLUMNS}, ${LOCK_FIELDS}`;
 
 function forbidden(response, message = 'No tienes permiso para hacer esto con ese usuario') {
@@ -36,6 +37,8 @@ function present(actor, row) {
     role: row.role,
     active: row.active,
     must_change_password: row.must_change_password,
+    mfa_enabled: row.totp_enabled,
+    email_domain_ok: row.email.endsWith(COMPANY_DOMAIN),
     created_at: row.created_at,
     is_master: isMasterUser(row),
     lock_state: lockState,
@@ -68,6 +71,11 @@ router.get('/', async (request, response, next) => {
 
 router.post('/', async (request, response, next) => {
   try {
+    // Los usuarios son correos de la empresa, y solo de la empresa: nombre@comcesa.net
+    const typedEmail = String((request.body && request.body.email) || '').trim().toLowerCase();
+    if (!/^[^\s@]+@comcesa\.net$/.test(typedEmail)) {
+      return response.status(400).json({ error: 'INVALID_EMAIL_DOMAIN', message: 'Solo se permiten correos de la empresa: nombre@comcesa.net' });
+    }
     const parsed = createSchema.safeParse(request.body);
     if (!parsed.success) {
       return response.status(400).json({ error: 'INVALID_USER', message: 'Correo o rol inválido' });
@@ -116,6 +124,27 @@ router.post('/:id/reset-password', async (request, response, next) => {
       [await hashPassword(tempPassword), target.id]
     );
     return response.json({ user: present(request.user, result.rows[0]), tempPassword });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Quita el segundo paso (por ejemplo si perdió el celular): en su próximo ingreso lo configura de nuevo.
+router.post('/:id/reset-mfa', async (request, response, next) => {
+  try {
+    const target = await findTarget(request, response);
+    if (!target) return null;
+    if (target.id === request.user.id) {
+      return response.status(400).json({ error: 'SELF_CHANGE', message: 'No puedes restablecer tu propio segundo paso' });
+    }
+    if (!permissionsFor(request.user, target).resetPassword) return forbidden(response);
+    await pool.query('DELETE FROM mfa_recovery_codes WHERE user_id = $1', [target.id]);
+    const result = await pool.query(
+      `UPDATE users SET totp_secret_enc = NULL, totp_enabled = FALSE, totp_last_step = NULL, updated_at = NOW()
+       WHERE id = $1 RETURNING ${COLUMNS_WITH_LOCK}`,
+      [target.id]
+    );
+    return response.json({ user: present(request.user, result.rows[0]) });
   } catch (error) {
     return next(error);
   }

@@ -31,6 +31,18 @@ async function ensureDatabaseSchema() {
       uni_med VARCHAR(10) NOT NULL
     );
 
+    -- Segundo paso de verificación (aplicación autenticadora)
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret_enc TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT;
+    CREATE TABLE IF NOT EXISTS mfa_recovery_codes (
+      id BIGSERIAL PRIMARY KEY,
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      used_at TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS mfa_recovery_codes_user_idx ON mfa_recovery_codes(user_id);
+
     -- Costos de Aspel (solo los ven los administradores)
     ALTER TABLE inve ADD COLUMN IF NOT EXISTS costo_prom NUMERIC(18, 4);
     ALTER TABLE inve ADD COLUMN IF NOT EXISTS ult_costo NUMERIC(18, 4);

@@ -134,8 +134,27 @@ async function syncCosts(aspel) {
   return true;
 }
 
+// La conexión con Aspel a veces falla en el primer intento: se reintenta hasta 3 veces.
+async function connectWithRetry(attempts = 3) {
+  const waitMs = Number(process.env.CATALOGOS_RETRY_WAIT_MS || 20000);
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const candidate = new sql.ConnectionPool(sqlConfig());
+    try {
+      await candidate.connect();
+      return candidate;
+    } catch (error) {
+      lastError = error;
+      await candidate.close().catch(() => {});
+      console.log(`Intento ${attempt} de ${attempts} para conectar con Aspel: ${error.message}`);
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+  throw lastError;
+}
+
 async function main() {
-  const aspel = await sql.connect(sqlConfig());
+  const aspel = await connectWithRetry();
   let ok = true;
   try {
     ok = (await syncWarehouseNames(aspel)) && ok;

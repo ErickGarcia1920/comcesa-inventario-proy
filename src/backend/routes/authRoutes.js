@@ -10,6 +10,7 @@ const { newPasswordSchema, hashPassword } = require('../services/passwordService
 const { createResetCode, consumeResetCode } = require('../services/resetService');
 const { sendMail, mailConfigured } = require('../services/mailer');
 const { isMasterUser } = require('../services/permissions');
+const mfa = require('../services/mfaService');
 const { MESSAGES, UNLOCK_SQL, LOCK_FIELDS, registerFailure, registerSuccess } = require('../services/lockoutService');
 const {
   SESSION_COOKIE,
@@ -34,7 +35,7 @@ router.post('/login', loginLimiter, async (request, response, next) => {
     }
 
     const result = await pool.query(
-      `SELECT id, email, password_hash, role, must_change_password, ${LOCK_FIELDS}
+      `SELECT id, email, password_hash, role, must_change_password, totp_enabled, ${LOCK_FIELDS}
        FROM users WHERE email = $1 AND active = TRUE LIMIT 1`,
       [email]
     );
@@ -63,6 +64,15 @@ router.post('/login', loginLimiter, async (request, response, next) => {
       return response.status(401).json({ error: 'INVALID_CREDENTIALS', message: 'Credenciales invalidas' });
     }
 
+    // Contraseña correcta: falta el segundo paso (código de la aplicación autenticadora).
+    // Aún no se entra ni se reinician los intentos fallidos: eso ocurre al verificar el código.
+    if (mfa.isMfaRequired()) {
+      const stage = user.totp_enabled ? 'verify' : 'enroll';
+      const pendingToken = await mfa.createPending(user.id, stage);
+      response.setHeader('Set-Cookie', serialize(mfa.MFA_COOKIE, pendingToken, mfa.pendingCookieOptions(env.NODE_ENV === 'production')));
+      return response.json({ mfaRequired: true, stage });
+    }
+
     await registerSuccess(user.id);
     const token = await createSession({ id: user.id, email: user.email, role: user.role });
     response.setHeader('Set-Cookie', serialize(SESSION_COOKIE, token, cookieOptions(env.NODE_ENV === 'production')));
@@ -83,10 +93,11 @@ router.post('/logout', async (request, response, next) => {
   try {
     const cookies = parse(request.headers.cookie || '');
     await destroySession(cookies[SESSION_COOKIE]);
-    response.setHeader('Set-Cookie', serialize(SESSION_COOKIE, '', {
-      ...cookieOptions(env.NODE_ENV === 'production'),
-      maxAge: 0
-    }));
+    await mfa.deletePending(cookies[mfa.MFA_COOKIE]);
+    response.setHeader('Set-Cookie', [
+      serialize(SESSION_COOKIE, '', { ...cookieOptions(env.NODE_ENV === 'production'), maxAge: 0 }),
+      serialize(mfa.MFA_COOKIE, '', mfa.pendingCookieOptions(env.NODE_ENV === 'production', 0))
+    ]);
     response.status(204).end();
   } catch (error) {
     next(error);

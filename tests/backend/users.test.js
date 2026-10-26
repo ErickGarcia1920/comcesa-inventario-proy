@@ -8,8 +8,10 @@ process.env.POSTGRES_DB ||= 'comcesa';
 process.env.POSTGRES_USER ||= 'comcesa';
 process.env.POSTGRES_PASSWORD ||= 'test-postgres-password-1234';
 process.env.REDIS_URL ||= 'redis://localhost:6379';
+// Estas pruebas cubren usuarios y bloqueos con contraseña sola; el segundo paso se prueba en mfa.test.js.
+process.env.MFA_REQUIRED = 'false';
 // Usuarios master solo para estas pruebas.
-process.env.MASTER_EMAILS = 'master1-users-test@comcesa.local,master2-users-test@comcesa.local,master3-users-test@comcesa.local';
+process.env.MASTER_EMAILS = 'master1-users-test@comcesa.net,master2-users-test@comcesa.net,master3-users-test@comcesa.net';
 
 const assert = require('node:assert/strict');
 const { after, before, test } = require('node:test');
@@ -19,9 +21,9 @@ const { ensureDatabaseSchema } = require('../../src/backend/config/schema');
 const { redis } = require('../../src/backend/config/redis');
 const app = require('../../src/backend/app');
 
-const adminEmail = 'admin-users-test@comcesa.local';
+const adminEmail = 'admin-users-test@comcesa.net';
 const adminPassword = 'Admin-prueba-2026!';
-const newEmail = 'nuevo-users-test@comcesa.local';
+const newEmail = 'nuevo-users-test@comcesa.net';
 let server; let baseUrl;
 
 function client() {
@@ -41,13 +43,13 @@ function client() {
 
 before(async () => {
   await ensureDatabaseSchema();
-  await pool.query("DELETE FROM users WHERE email LIKE '%-users-test@comcesa.local'");
+  await pool.query("DELETE FROM users WHERE email LIKE '%-users-test@comcesa.net'");
   await pool.query("INSERT INTO users (email, password_hash, role) VALUES ($1, $2, 'admin')", [adminEmail, await bcrypt.hash(adminPassword, 4)]);
   server = app.listen(0); baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(async () => {
-  await pool.query("DELETE FROM users WHERE email LIKE '%-users-test@comcesa.local'");
+  await pool.query("DELETE FROM users WHERE email LIKE '%-users-test@comcesa.net'");
   await new Promise((resolve) => server.close(resolve));
   await pool.end(); redis.disconnect();
 });
@@ -90,12 +92,12 @@ test('flujo completo: crear usuario, cambio obligatorio, reset y eliminación', 
 
 test('recuperación: responde igual aunque el correo no exista y rechaza códigos falsos', async () => {
   const anon = client();
-  assert.equal((await anon('/api/v1/auth/forgot', { method: 'POST', body: { email: 'nadie@comcesa.local' } })).status, 200);
+  assert.equal((await anon('/api/v1/auth/forgot', { method: 'POST', body: { email: 'nadie@comcesa.net' } })).status, 200);
   assert.equal((await anon('/api/v1/auth/reset', { method: 'POST', body: { email: adminEmail, code: '123456', newPassword: 'OtraClave2026x' } })).status, 400);
 });
 
 const PASSWORD = 'Clave-de-prueba-2026';
-const em = (name) => `${name}-users-test@comcesa.local`;
+const em = (name) => `${name}-users-test@comcesa.net`;
 async function insertUser(email, role) {
   await pool.query('INSERT INTO users (email, password_hash, role) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET role = EXCLUDED.role, active = TRUE', [email, await bcrypt.hash(PASSWORD, 4), role]);
 }

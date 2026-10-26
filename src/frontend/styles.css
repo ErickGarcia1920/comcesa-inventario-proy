@@ -102,6 +102,22 @@ input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb
 .range-inputs { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: .5rem; align-items: center; }
 .range-sep { color: var(--muted); font-size: .9rem; }
 
+/* Verificación en dos pasos */
+.link-button { background: none; border: 0; padding: .35rem 0; text-align: left; cursor: pointer; font: inherit; }
+.mfa-steps { margin: 1.2rem 0 1rem; padding-left: 1.3rem; color: #2f4a5e; line-height: 1.6; }
+.mfa-steps li + li { margin-top: .3rem; }
+.qr-box { display: inline-block; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: .6rem; box-shadow: var(--shadow); }
+.qr-image { display: block; width: 220px; height: 220px; image-rendering: pixelated; }
+.same-phone { margin: 1rem 0; color: #2f4a5e; font-size: .92rem; }
+.same-phone summary { cursor: pointer; color: var(--navy); font-weight: 600; }
+.secret-line { margin: .5rem 0; }
+.secret-line code { display: inline-block; background: var(--sky); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .5rem .7rem; font-size: 1.05rem; letter-spacing: .08em; overflow-wrap: anywhere; }
+.button-row { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0; }
+.recovery-grid { list-style: none; margin: 1.2rem 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+.recovery-grid li { background: var(--sky); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: .55rem .7rem; text-align: center; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1rem; letter-spacing: .05em; }
+.check-line { display: flex; align-items: center; gap: .6rem; margin: 1rem 0 .8rem; font-weight: 600; }
+.check-line input { width: 20px; min-height: 0; height: 20px; flex-shrink: 0; }
+
 /* Tabla */
 .table-frame { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .table-scroll { overflow-x: auto; }
