@@ -71,14 +71,14 @@
             <p>Solo se hace una vez. Necesitas la aplicación <strong>Microsoft Authenticator</strong> en tu celular.</p>
           </div>
           <ol class="mfa-steps">
-            <li>En la aplicación toca <strong>+</strong> y elige <strong>Otra cuenta (Google, Facebook, etc.)</strong>.</li>
-            <li>Escanea este código QR con la cámara de la aplicación.</li>
-            <li>Escribe abajo el código de 6 dígitos que aparece.</li>
+            <li>En la aplicación toca <strong>+</strong> y elige <strong>Cuenta profesional o educativa</strong>. No elijas Cuenta personal ni Otra cuenta (Google, Facebook, etc.).</li>
+            <li>Toca <strong>Escanear un código QR</strong> y apunta la cámara al código de abajo.</li>
+            <li>Escribe abajo el código de 6 dígitos que aparece en la aplicación.</li>
           </ol>
           <div class="qr-box"><img id="qr-image" class="qr-image" alt="Código QR para la aplicación autenticadora" width="220" height="220"></div>
           <details class="same-phone">
             <summary>¿Estás entrando desde ese mismo celular? No puedes escanear la pantalla</summary>
-            <p>En la aplicación elige <strong>O ingresar código manualmente</strong> y escribe esta clave (el nombre de la cuenta puede ser tu correo):</p>
+            <p>Solo en este caso, la aplicación pide la clave a mano y para eso debes usar otra opción: toca <strong>+</strong>, elige <strong>Otra cuenta (Google, Facebook, etc.)</strong>, luego la opción de <strong>ingresar el código manualmente</strong>. Como nombre de la cuenta escribe tu correo y, como clave, esta:</p>
             <p class="secret-line"><code id="secret-text"></code></p>
             <div class="button-row">
               <button id="copy-secret" class="ghost-button small-button" type="button">Copiar clave</button>
@@ -112,7 +112,7 @@
       </div>
     </section>
   </main>
-  <script src="/login.js?v=2" defer></script>
+  <script src="/login.js?v=3" defer></script>
   <script src="/pwa.js" defer></script>
 </body>
 </html>

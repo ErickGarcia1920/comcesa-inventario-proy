@@ -6,8 +6,10 @@ let recoveryMode = false;
 
 function show(name) {
   Object.entries(steps).forEach(([key, element]) => { element.hidden = key !== name; });
-  const focusTarget = { login: '#email', verify: '#verify-code', enroll: '#enable-code' }[name];
-  if (focusTarget) $(focusTarget).focus();
+  window.scrollTo(0, 0);
+  // En la configuración inicial no se enfoca el código: la pantalla es larga y el teclado taparía el QR.
+  const focusTarget = { login: '#email', verify: '#verify-code' }[name];
+  if (focusTarget) $(focusTarget).focus({ preventScroll: true });
 }
 
 async function post(url, data) {
@@ -111,8 +113,7 @@ async function startEnroll() {
   $('#qr-image').src = body.qr;
   $('#secret-text').textContent = body.secret;
   $('#otpauth-link').href = body.otpauthUrl;
-  // En el celular no se puede escanear la propia pantalla: se muestra de una vez la clave para escribir.
-  $('.same-phone').open = window.matchMedia('(max-width: 860px)').matches;
+  $('.same-phone').open = false;
   show('enroll');
 }
 
