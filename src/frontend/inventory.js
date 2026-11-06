@@ -33,10 +33,18 @@ async function loadWarehouses() {
     data.warehouses.forEach((warehouse) => {
       const option = document.createElement('option');
       option.value = String(warehouse.id);
-      option.textContent = warehouse.name ? `${warehouse.id} · ${warehouse.name}` : `Bodega ${warehouse.id}`;
+      option.textContent = warehouse.name ? `${warehouse.id} · ${shortWarehouseName(warehouse.id, warehouse.name)}` : `Bodega ${warehouse.id}`;
       warehouseSelect.appendChild(option);
     });
   } catch (error) { if (error.message === 'UNAUTHENTICATED') throw error; }
+}
+
+// Quita "ALMACEN <número>" del inicio del nombre cuando el número es el mismo de la bodega
+// (ej. "ALMACEN 1 BODEGA CENTRAL" -> "BODEGA CENTRAL"). Solo cambia lo que se muestra en pantalla.
+function shortWarehouseName(id, name) {
+  const text = String(name || '').trim();
+  const cleaned = text.replace(new RegExp(`^ALMAC[EÉ]N\\s+0*${Number(id)}(?!\\d)[\\s.:\\-–]*`, 'i'), '').trim();
+  return cleaned || text;
 }
 
 function renderInventory(data) {
@@ -55,7 +63,7 @@ function renderInventory(data) {
       { col: 'article', label: '', value: item.article },
       { col: 'description', label: '', value: item.description },
       { col: 'line', label: 'Línea', value: item.line || '—' },
-      { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${item.warehouse_name}` : ''}` },
+      { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${shortWarehouseName(item.warehouse, item.warehouse_name)}` : ''}` },
       { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' }
     ];
     if (state.isAdmin) {
