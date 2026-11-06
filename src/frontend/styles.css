@@ -192,16 +192,15 @@ th.numeric { text-align: right; }
   .stack-table .badge { white-space: normal; }
   .stack-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: .76rem; font-weight: 600; margin-bottom: .15rem; }
 
-  #inventory-body tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "art art status" "desc desc desc" "line wh stock"; align-items: start; }
+  #inventory-body tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "art art art" "desc desc desc" "line wh stock"; align-items: start; }
   #inventory-body td[data-col="article"] { grid-area: art; font-size: 1.1rem; }
-  #inventory-body td[data-col="status"] { grid-area: status; justify-self: end; }
   #inventory-body td[data-col="description"] { grid-area: desc; color: var(--ink); }
   #inventory-body td[data-col="line"] { grid-area: line; }
   #inventory-body td[data-col="warehouse"] { grid-area: wh; }
   #inventory-body td[data-col="stock"] { grid-area: stock; text-align: right; font-size: 1.4rem; line-height: 1.1; }
   #inventory-body td[data-col="stock"]::before { font-size: .76rem; }
 
-  .has-costs #inventory-body tr { grid-template-areas: "art art status" "desc desc desc" "line wh stock" "avg avg last"; }
+  .has-costs #inventory-body tr { grid-template-areas: "art art art" "desc desc desc" "line wh stock" "avg avg last"; }
   #inventory-body td[data-col="avg_cost"] { grid-area: avg; text-align: left; }
   #inventory-body td[data-col="last_cost"] { grid-area: last; text-align: right; }
   #inventory-body td[data-col="avg_cost"], #inventory-body td[data-col="last_cost"] { color: var(--ink); font-weight: 600; }

@@ -56,7 +56,6 @@ function renderInventory(data) {
       { col: 'description', label: '', value: item.description },
       { col: 'line', label: 'Línea', value: item.line || '—' },
       { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${item.warehouse_name}` : ''}` },
-      { col: 'status', label: '', value: stock > 0 ? 'Activo' : 'Sin stock', badge: stock > 0 ? 'badge-active' : 'badge-nostock' },
       { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' }
     ];
     if (state.isAdmin) {
