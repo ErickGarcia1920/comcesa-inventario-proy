@@ -16,8 +16,7 @@ const COLUMNS = [
   { header: 'Estado', width: 12 },
   { header: 'Existencia', width: 14, numeric: true },
   { header: 'Costo promedio', width: 16, numeric: true },
-  { header: 'Último costo', width: 16, numeric: true },
-  { header: 'Precio', width: 16, numeric: true }
+  { header: 'Último costo', width: 16, numeric: true }
 ];
 
 // Fecha y hora de Guatemala, por ejemplo "2026-10-13 14:05".
@@ -38,7 +37,7 @@ function sortLabel(filters) {
 }
 
 // Escribe el libro de Excel directamente en la respuesta (sin armarlo completo en memoria).
-async function writeInventoryWorkbook(response, rows, filters, priceList = null) {
+async function writeInventoryWorkbook(response, rows, filters) {
   const now = new Date();
   const stamp = guatemalaStamp(now);
   const fileStamp = stamp.replace(' ', '_').replace(':', '');
@@ -59,9 +58,7 @@ async function writeInventoryWorkbook(response, rows, filters, priceList = null)
   sheet.columns = COLUMNS.map((column) => ({ width: column.width }));
   sheet.autoFilter = `A1:${String.fromCharCode(64 + COLUMNS.length)}${rows.length + 1}`;
 
-  // El encabezado del precio dice de qué lista es: "Precio (Lista 1, con impuesto)".
-  const priceHeader = priceList ? `Precio (${priceList.name || `Lista ${priceList.id}`}, ${priceList.withTax ? 'con' : 'sin'} impuesto)` : 'Precio';
-  const header = sheet.addRow(COLUMNS.map((column) => (column.header === 'Precio' ? priceHeader : column.header)));
+  const header = sheet.addRow(COLUMNS.map((column) => column.header));
   header.height = 22;
   header.eachCell((cell, columnNumber) => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -82,13 +79,11 @@ async function writeInventoryWorkbook(response, rows, filters, priceList = null)
       stock > 0 ? 'Activo' : 'Sin stock',
       stock,
       item.avg_cost === null || item.avg_cost === undefined ? null : Number(item.avg_cost),
-      item.last_cost === null || item.last_cost === undefined ? null : Number(item.last_cost),
-      item.price === null || item.price === undefined ? null : Number(item.price)
+      item.last_cost === null || item.last_cost === undefined ? null : Number(item.last_cost)
     ]);
     row.getCell(8).numFmt = Number.isInteger(stock) ? '#,##0' : '#,##0.00##';
     row.getCell(9).numFmt = QUETZALES;
     row.getCell(10).numFmt = QUETZALES;
-    row.getCell(11).numFmt = QUETZALES;
     row.commit();
   }
   sheet.commit();
@@ -107,8 +102,7 @@ async function writeInventoryWorkbook(response, rows, filters, priceList = null)
     ['Orden', sortLabel(filters)],
     ['Registros exportados', rows.length],
     ['Nota', 'Incluye solo las bodegas autorizadas. Activo = existencia mayor a cero; Sin stock = existencia en cero o negativa.'],
-    ['Moneda', 'Costos y precio en quetzales (Q), tal como están registrados en Aspel SAE. Un precio vacío significa que el artículo no tiene precio en esa lista.'],
-    ['Lista de precios', priceList ? `${priceList.name || priceList.id} (${priceList.withTax ? 'con' : 'sin'} impuesto)` : 'Sin lista de precios'],
+    ['Moneda', 'Costo promedio y Último costo en quetzales (Q), tal como están registrados en Aspel SAE.'],
     ['Confidencial', 'Este archivo incluye costos: solo debe compartirse con personal autorizado.']
   ];
   for (const [label, value] of infoRows) {

@@ -10,8 +10,6 @@ process.env.POSTGRES_PASSWORD ||= 'test-postgres-password-1234';
 process.env.REDIS_URL ||= 'redis://localhost:6379';
 // Estas pruebas usan contraseña sola; el segundo paso se prueba en mfa.test.js.
 process.env.MFA_REQUIRED = 'false';
-// Lista de precios propia de estas pruebas (no toca las listas reales).
-process.env.DEFAULT_PRICE_LIST = 'TEST-L1';
 // Las bodegas de prueba (91 a 98) se autorizan solo en estas pruebas, junto con las 15 reales.
 process.env.ALLOWED_WAREHOUSES = '1,3,4,11,14,15,16,18,20,23,24,28,31,35,36,91,92,93,94,95,96,97,98';
 
@@ -93,23 +91,11 @@ before(async () => {
   `);
   await pool.query("UPDATE inve SET costo_prom = 10.5, ult_costo = 12.25 WHERE cve_art = 'TEST-001'");
   await pool.query("INSERT INTO almacenes (cve_alm, nombre) VALUES (91, 'Bodega de prueba') ON CONFLICT (cve_alm) DO UPDATE SET nombre = EXCLUDED.nombre");
-  await pool.query(`
-    INSERT INTO precios01 (cve_precio, descripcion, status, uuid, con_impu)
-    VALUES ('TEST-L1', 'LISTA DE PRUEBA', 'A', 'test-uuid-lista', TRUE)
-    ON CONFLICT (cve_precio) DO UPDATE SET descripcion = EXCLUDED.descripcion, status = 'A', con_impu = TRUE
-  `);
-  await pool.query(`
-    INSERT INTO precio_x_prod01 (cve_art, cve_precio, precio, uuid)
-    VALUES ('TEST-001', 'TEST-L1', 150.50, 'test-uuid-p1'), ('TEST-002', 'TEST-L1', 0, 'test-uuid-p2')
-    ON CONFLICT (cve_art, cve_precio) DO UPDATE SET precio = EXCLUDED.precio
-  `);
   server = app.listen(0);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
 });
 
 after(async () => {
-  await pool.query("DELETE FROM precio_x_prod01 WHERE cve_precio = 'TEST-L1'");
-  await pool.query("DELETE FROM precios01 WHERE cve_precio = 'TEST-L1'");
   await pool.query('DELETE FROM mult WHERE cve_art LIKE $1', ['TEST-%']);
   await pool.query('DELETE FROM inve WHERE cve_art LIKE $1', ['TEST-%']);
   await pool.query('DELETE FROM almacenes WHERE cve_alm = 91');
@@ -461,51 +447,10 @@ test('CP-47 las bodegas autorizadas por defecto son exactamente las 15 acordadas
   assert.deepEqual(JSON.parse(output), [1, 3, 4, 11, 14, 15, 16, 18, 20, 23, 24, 28, 31, 35, 36]);
 });
 
-test('CP-48 el listado trae el precio de la lista y dice de qué lista es', async () => {
-  const { body } = await request('/api/v1/inventory?search=TEST-001');
-  const item = body.items.find((row) => row.article === 'TEST-001');
-  assert.equal(item.price, 150.5);
-  assert.deepEqual(body.priceList, { id: 'TEST-L1', name: 'LISTA DE PRUEBA', withTax: true });
-
-  // El consultor también ve el precio (pero nunca los costos)
-  const consultor = await asViewer('/api/v1/inventory?search=TEST-001');
-  const viewerItem = consultor.body.items.find((row) => row.article === 'TEST-001');
-  assert.equal(viewerItem.price, 150.5);
-  assert.equal(Object.hasOwn(viewerItem, 'avg_cost'), false);
-});
-
-test('CP-49 sin precio o con precio en cero el listado devuelve null', async () => {
-  const zero = (await request('/api/v1/inventory?search=TEST-002')).body.items.find((row) => row.article === 'TEST-002');
-  assert.equal(zero.price, null, 'precio en cero = sin precio');
-  const none = (await request('/api/v1/inventory?search=TEST-003')).body.items.find((row) => row.article === 'TEST-003');
-  assert.equal(none.price, null, 'artículo sin fila de precio');
-});
-
-test('CP-50 si la lista configurada no existe se usa la primera disponible', async () => {
-  const { resetPriceListCache } = require('../../src/backend/services/inventoryService');
-  process.env.DEFAULT_PRICE_LIST = 'NO-EXISTE';
-  resetPriceListCache();
-  try {
-    const { body } = await request('/api/v1/inventory?search=TEST-001');
-    assert.ok(body.priceList, 'debe haber una lista de respaldo');
-    assert.notEqual(body.priceList.id, 'NO-EXISTE');
-  } finally {
-    process.env.DEFAULT_PRICE_LIST = 'TEST-L1';
-    resetPriceListCache();
-  }
-  assert.equal((await request('/api/v1/inventory?search=TEST-001')).body.priceList.id, 'TEST-L1');
-});
-
-test('CP-51 el Excel trae el precio y los costos y el precio en formato de quetzales', async () => {
+test('CP-48 el Excel muestra los costos en formato de quetzales', async () => {
   const { buffer } = await downloadExcel('?search=TEST-001');
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
   const sheet = workbook.getWorksheet('Inventario');
-  assert.match(sheet.getCell(1, 11).value, /^Precio \(LISTA DE PRUEBA, con impuesto\)$/);
-  assert.equal(sheet.getCell(2, 11).value, 150.5);
-  for (const column of [9, 10, 11]) assert.equal(sheet.getCell(2, column).numFmt, '"Q "#,##0.00', `columna ${column}`);
-  const info = workbook.getWorksheet('Filtros');
-  const labels = [];
-  info.eachRow((row) => labels.push(row.getCell(1).value));
-  assert.ok(labels.includes('Lista de precios'));
+  for (const column of [9, 10]) assert.equal(sheet.getCell(2, column).numFmt, '"Q "#,##0.00', `columna ${column}`);
 });

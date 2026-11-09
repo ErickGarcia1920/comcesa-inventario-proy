@@ -31,23 +31,6 @@ function formatMoney(value) {
   return Number.isFinite(number) ? `Q ${quetzalFormat.format(number)}` : '—';
 }
 
-// Texto que dice de qué lista es el precio: "LISTA 1 PUBLICO · con impuesto".
-function priceListText(priceList) {
-  if (!priceList) return '';
-  return `${priceList.name || `Lista ${priceList.id}`} · ${priceList.withTax ? 'con' : 'sin'} impuesto`;
-}
-
-// Encabezado de la columna: "Precio" y, debajo, la lista de precios.
-function showPriceHeader(priceList) {
-  const header = document.querySelector('#price-header');
-  header.replaceChildren(document.createTextNode('Precio'));
-  if (!priceList) return;
-  const note = document.createElement('span');
-  note.className = 'th-note';
-  note.textContent = priceListText(priceList);
-  header.appendChild(note);
-}
-
 async function loadWarehouses() {
   try {
     const data = await apiRequest('/api/v1/inventory/warehouses');
@@ -70,8 +53,6 @@ function shortWarehouseName(id, name) {
 
 function renderInventory(data) {
   inventoryBody.replaceChildren();
-  showPriceHeader(data.priceList);
-  const priceLabel = data.priceList ? `Precio · ${priceListText(data.priceList)}` : 'Precio';
   document.querySelector('#result-count').textContent = data.total;
   exportButton.disabled = data.total === 0;
   state.totalPages = Math.max(data.totalPages, 1);
@@ -87,8 +68,7 @@ function renderInventory(data) {
       { col: 'description', label: '', value: item.description },
       { col: 'line', label: 'Línea', value: item.line || '—' },
       { col: 'warehouse', label: 'Bodega', value: `${item.warehouse}${item.warehouse_name ? ` · ${shortWarehouseName(item.warehouse, item.warehouse_name)}` : ''}` },
-      { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' },
-      { col: 'price', label: priceLabel, value: formatMoney(item.price), className: 'numeric' }
+      { col: 'stock', label: 'Existencia', value: stock.toLocaleString('es-GT', { maximumFractionDigits: 4 }), className: stock <= 0 ? 'numeric stock-zero' : 'numeric' }
     ];
     if (state.isAdmin) {
       cells.push(
@@ -178,4 +158,4 @@ filtersForm.addEventListener('submit', (event) => { event.preventDefault(); stat
 document.querySelector('#previous-page').addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadInventory(); } });
 document.querySelector('#next-page').addEventListener('click', () => { if (state.page < state.totalPages) { state.page += 1; loadInventory(); } });
 document.querySelector('#logout-button').addEventListener('click', async () => { await apiRequest('/api/v1/auth/logout', { method: 'POST' }); window.location.replace('/login'); });
-initialize()
+initialize();

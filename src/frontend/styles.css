@@ -118,8 +118,7 @@ input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb
 .check-line { display: flex; align-items: center; gap: .6rem; margin: 1rem 0 .8rem; font-weight: 600; }
 .check-line input { width: 20px; min-height: 0; height: 20px; flex-shrink: 0; }
 
-td[data-col="price"], td[data-col="avg_cost"], td[data-col="last_cost"] { white-space: nowrap; }
-.th-note { display: block; margin-top: .1rem; color: var(--muted); font-size: .72rem; font-weight: 600; white-space: normal; }
+td[data-col="avg_cost"], td[data-col="last_cost"] { white-space: nowrap; }
 
 /* Tabla */
 .table-frame { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
@@ -195,9 +194,7 @@ th.numeric { text-align: right; }
   .stack-table .badge { white-space: normal; }
   .stack-table td[data-label]::before { content: attr(data-label); display: block; color: var(--muted); font-size: .76rem; font-weight: 600; margin-bottom: .15rem; }
 
-  #inventory-body tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "art art art" "desc desc desc" "line wh stock" "price price price"; align-items: start; }
-  #inventory-body td[data-col="price"], #inventory-body td[data-col="avg_cost"], #inventory-body td[data-col="last_cost"] { white-space: normal; overflow-wrap: anywhere; }
-  #inventory-body td[data-col="price"] { grid-area: price; text-align: left; font-size: 1.15rem; line-height: 1.1; }
+  #inventory-body tr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "art art art" "desc desc desc" "line wh stock"; align-items: start; }
   #inventory-body td[data-col="article"] { grid-area: art; font-size: 1.1rem; }
   #inventory-body td[data-col="description"] { grid-area: desc; color: var(--ink); }
   #inventory-body td[data-col="line"] { grid-area: line; }
@@ -205,7 +202,8 @@ th.numeric { text-align: right; }
   #inventory-body td[data-col="stock"] { grid-area: stock; text-align: right; font-size: 1.4rem; line-height: 1.1; }
   #inventory-body td[data-col="stock"]::before { font-size: .76rem; }
 
-  .has-costs #inventory-body tr { grid-template-areas: "art art art" "desc desc desc" "line wh stock" "price price price" "avg avg last"; }
+  .has-costs #inventory-body tr { grid-template-areas: "art art art" "desc desc desc" "line wh stock" "avg avg last"; }
+  #inventory-body td[data-col="avg_cost"], #inventory-body td[data-col="last_cost"] { white-space: normal; overflow-wrap: anywhere; }
   #inventory-body td[data-col="avg_cost"] { grid-area: avg; text-align: left; }
   #inventory-body td[data-col="last_cost"] { grid-area: last; text-align: right; }
   #inventory-body td[data-col="avg_cost"], #inventory-body td[data-col="last_cost"] { color: var(--ink); font-weight: 600; }
