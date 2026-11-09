@@ -2,7 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const { requireAuth, requireAdmin } = require('../middlewares/auth');
 const rateLimit = require('express-rate-limit');
-const { findInventory, findInventoryForExport, findWarehouses } = require('../services/inventoryService');
+const { findInventory, findInventoryForExport, findWarehouses, getDefaultPriceList } = require('../services/inventoryService');
 const { writeInventoryWorkbook } = require('../services/exportService');
 
 const router = express.Router();
@@ -40,7 +40,7 @@ router.get('/export', requireAuth, requireAdmin, exportLimiter, async (request, 
     if (rows.length > MAX_EXPORT_ROWS) {
       return response.status(413).json({ error: 'TOO_MANY_ROWS', message: 'Hay demasiados registros para descargar. Aplica un filtro e intenta de nuevo.' });
     }
-    await writeInventoryWorkbook(response, rows, parsed.data);
+    await writeInventoryWorkbook(response, rows, parsed.data, await getDefaultPriceList());
   } catch (error) {
     if (response.headersSent) { response.destroy(error); return; }
     next(error);
@@ -68,4 +68,4 @@ router.get('/', requireAuth, async (request, response, next) => {
   }
 });
 
-module.exports = router;
+module.exports = router

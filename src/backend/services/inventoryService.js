@@ -1,6 +1,35 @@
 const { pool } = require('../config/database');
 const { ALLOWED_WAREHOUSES } = require('../config/warehouses');
 
+// ---------- Lista de precios que se muestra ----------
+// Por defecto la lista "1" (se cambia con la variable DEFAULT_PRICE_LIST). Si esa lista no existe,
+// se usa la primera lista activa que haya. El resultado se guarda 1 minuto para no consultarlo en cada búsqueda.
+let priceListCache = { at: 0, value: null };
+
+async function getDefaultPriceList() {
+  if (Date.now() - priceListCache.at < 60 * 1000) return priceListCache.value;
+  const wanted = process.env.DEFAULT_PRICE_LIST || '1';
+  let result = await pool.query('SELECT cve_precio, descripcion, con_impu FROM precios01 WHERE cve_precio = $1', [wanted]);
+  if (!result.rowCount) {
+    result = await pool.query("SELECT cve_precio, descripcion, con_impu FROM precios01 ORDER BY (status = 'A') DESC, cve_precio LIMIT 1");
+  }
+  const row = result.rows[0];
+  const value = row ? { id: row.cve_precio, name: String(row.descripcion || '').trim(), withTax: Boolean(row.con_impu) } : null;
+  priceListCache = { at: Date.now(), value };
+  return value;
+}
+
+function resetPriceListCache() {
+  priceListCache = { at: 0, value: null };
+}
+
+// Un precio en cero se toma como "sin precio" (se muestra "—"); lo demás llega como número.
+function cleanPrice(value) {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
 // Dentro de cada artículo, las bodegas se ordenan de mayor a menor existencia.
 // El último criterio (m.cve_alm) mantiene estable el orden entre páginas.
 function buildOrderBy(sort, direction) {
@@ -51,7 +80,10 @@ function buildFilter(filters) {
   return { where: `WHERE ${conditions.join(' AND ')}`, values };
 }
 
-function selectColumns(includeCosts) {
+function selectColumns(includeCosts, priceParam) {
+  const price = priceParam
+    ? `(SELECT x.precio FROM precio_x_prod01 x WHERE x.cve_art = i.cve_art AND x.cve_precio = $${priceParam})`
+    : 'NULL::numeric';
   return `
       i.cve_art AS article,
       i.descr AS description,
@@ -59,7 +91,8 @@ function selectColumns(includeCosts) {
       i.uni_med AS unit,
       m.cve_alm AS warehouse,
       a.nombre AS warehouse_name,
-      m.exist AS stock${includeCosts ? `,
+      m.exist AS stock,
+      ${price} AS price${includeCosts ? `,
       i.costo_prom AS avg_cost,
       i.ult_costo AS last_cost` : ''}`;
 }
@@ -78,9 +111,13 @@ async function findInventory(filters, { includeCosts = false } = {}) {
 
   const countResult = await pool.query(`SELECT COUNT(*)::integer AS total ${FROM} ${where}`, values);
 
-  const dataValues = [...values, filters.limit, offset];
+  const priceList = await getDefaultPriceList();
+  const dataValues = [...values];
+  let priceParam = null;
+  if (priceList) { dataValues.push(priceList.id); priceParam = dataValues.length; }
+  dataValues.push(filters.limit, offset);
   const result = await pool.query(`
-    SELECT${selectColumns(includeCosts)}
+    SELECT${selectColumns(includeCosts, priceParam)}
     ${FROM}
     ${where}
     ORDER BY ${orderBy}
@@ -88,11 +125,12 @@ async function findInventory(filters, { includeCosts = false } = {}) {
   `, dataValues);
 
   return {
-    items: result.rows,
+    items: result.rows.map((row) => ({ ...row, price: cleanPrice(row.price) })),
     page: filters.page,
     limit: filters.limit,
     total: countResult.rows[0].total,
-    totalPages: Math.ceil(countResult.rows[0].total / filters.limit)
+    totalPages: Math.ceil(countResult.rows[0].total / filters.limit),
+    priceList
   };
 }
 
@@ -101,14 +139,19 @@ async function findInventory(filters, { includeCosts = false } = {}) {
 async function findInventoryForExport(filters, maxRows) {
   const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
+  const priceList = await getDefaultPriceList();
+  const dataValues = [...values];
+  let priceParam = null;
+  if (priceList) { dataValues.push(priceList.id); priceParam = dataValues.length; }
+  dataValues.push(maxRows + 1);
   const result = await pool.query(`
-    SELECT${selectColumns(true)}
+    SELECT${selectColumns(true, priceParam)}
     ${FROM}
     ${where}
     ORDER BY ${orderBy}
-    LIMIT $${values.length + 1}
-  `, [...values, maxRows + 1]);
-  return result.rows;
+    LIMIT $${dataValues.length}
+  `, dataValues);
+  return result.rows.map((row) => ({ ...row, price: cleanPrice(row.price) }));
 }
 
 // Bodegas autorizadas con su nombre (si todavía no se ha cargado el nombre, name = null).
@@ -122,4 +165,4 @@ async function findWarehouses() {
   return result.rows;
 }
 
-module.exports = { findInventory, findInventoryForExport, findWarehouses };
+module.exports = { findInventory, findInventoryForExport, findWarehouses, getDefaultPriceList, resetPriceListCache };
