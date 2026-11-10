@@ -2,8 +2,6 @@ const body = document.querySelector('#users-body');
 const message = document.querySelector('#message');
 const tempBox = document.querySelector('#temp-box');
 let me;
-let inventoryLines = [];
-let editingUser = null;
 
 async function api(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } });
@@ -102,9 +100,6 @@ function render(users) {
       if (allowed.toggleActive) {
         wrap.append(actionButton(user.active ? 'Desactivar' : 'Activar', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ active: !user.active }) })));
       }
-      if (user.role === 'viewer') {
-        wrap.append(actionButton('Permisos', () => openPermissions(user)));
-      }
       if (allowed.changeRole) {
         wrap.append(actionButton(user.role === 'admin' ? 'Quitar admin' : 'Hacer admin', () => api(`/api/v1/users/${user.id}`, { method: 'PATCH', body: JSON.stringify({ role: user.role === 'admin' ? 'viewer' : 'admin' }) })));
       }
@@ -132,36 +127,6 @@ async function load() {
   render((await api('/api/v1/users')).users);
 }
 
-function openPermissions(user) {
-  editingUser = user;
-  document.querySelector('#permissions-email').textContent = user.email;
-  document.querySelector('#can-view-prices').checked = Boolean(user.can_view_prices);
-  const options = document.querySelector('#line-options');
-  options.replaceChildren();
-  inventoryLines.forEach((line, index) => {
-    const label = document.createElement('label');
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox'; checkbox.value = line;
-    checkbox.checked = user.allowed_lines === null || user.allowed_lines.some((value) => value.toLocaleUpperCase('es') === line.toLocaleUpperCase('es'));
-    checkbox.id = `allowed-line-${index}`;
-    label.htmlFor = checkbox.id; label.append(checkbox, document.createTextNode(` ${line}`)); options.append(label);
-  });
-  document.querySelector('#permissions-message').textContent = '';
-  document.querySelector('#permissions-dialog').showModal();
-}
-
-document.querySelector('#save-permissions').addEventListener('click', async () => {
-  const error = document.querySelector('#permissions-message'); error.textContent = '';
-  const checkboxes = [...document.querySelectorAll('#line-options input[type="checkbox"]')];
-  const selected = checkboxes.filter((item) => item.checked).map((item) => item.value);
-  const allowedLines = selected;
-  try {
-    await api(`/api/v1/users/${editingUser.id}`, { method: 'PATCH', body: JSON.stringify({ allowedLines, canViewPrices: document.querySelector('#can-view-prices').checked }) });
-    document.querySelector('#permissions-dialog').close(); await load();
-  } catch (exception) { error.textContent = exception.message; }
-});
-document.querySelector('#cancel-permissions').addEventListener('click', () => document.querySelector('#permissions-dialog').close());
-
 document.querySelector('#create-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   message.textContent = '';
@@ -182,7 +147,6 @@ document.querySelector('#logout-button').addEventListener('click', async () => {
     if (me.role !== 'admin') return window.location.replace('/inventario');
     // Solo un usuario master puede crear administradores.
     if (!me.isMaster) document.querySelector('#new-role option[value="admin"]').remove();
-    inventoryLines = (await api('/api/v1/inventory/lines')).lines;
     document.querySelector('#role-hint').textContent = me.isMaster
       ? 'Como usuario master puedes gestionar consultores y administradores.'
       : 'Como administrador puedes gestionar consultores. Para crear o cambiar administradores se necesita un usuario master.';

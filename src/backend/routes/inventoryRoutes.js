@@ -2,7 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const { requireAuth, requireAdmin } = require('../middlewares/auth');
 const rateLimit = require('express-rate-limit');
-const { findInventory, findInventoryForExport, findWarehouses, findLines, getDefaultPriceList } = require('../services/inventoryService');
+const { findInventory, findInventoryForExport, findWarehouses, getDefaultPriceList } = require('../services/inventoryService');
 const { writeInventoryWorkbook } = require('../services/exportService');
 
 const router = express.Router();
@@ -55,28 +55,14 @@ router.get('/warehouses', requireAuth, async (request, response, next) => {
   }
 });
 
-router.get('/lines', requireAuth, async (request, response, next) => {
-  try {
-    const lines = await findLines();
-    const allowed = request.user.role === 'admin' || request.user.allowedLines === null
-      ? lines
-      : lines.filter((line) => request.user.allowedLines.some((item) => item.toLocaleUpperCase('es') === line.toLocaleUpperCase('es')));
-    response.json({ lines: allowed });
-  } catch (error) { next(error); }
-});
-
 router.get('/', requireAuth, async (request, response, next) => {
   try {
     const parsed = filtersSchema.safeParse(request.query);
     if (!parsed.success) {
       return response.status(400).json({ error: 'INVALID_FILTERS', message: 'Los filtros no son validos' });
     }
-    // El servidor aplica los permisos de línea y precio en cada consulta.
-    const allowedLines = request.user.role === 'admin' || request.user.allowedLines === null ? undefined : request.user.allowedLines;
-    response.json(await findInventory({ ...parsed.data, allowedLines }, {
-      includeCosts: request.user.role === 'admin',
-      includePrices: request.user.role === 'admin' || request.user.canViewPrices
-    }));
+    // Costo promedio y último costo solo se envían a administradores.
+    response.json(await findInventory(parsed.data, { includeCosts: request.user.role === 'admin' }));
   } catch (error) {
     next(error);
   }
