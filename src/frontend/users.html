@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css?v=7">
+  <link rel="stylesheet" href="/styles.css?v=8">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" type="image/png" href="/favicon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -52,9 +52,10 @@
       </div>
       <p id="message" class="form-message" role="alert" aria-live="polite"></p>
       <div class="table-frame"><div class="table-scroll"><table class="stack-table"><thead><tr><th>Correo</th><th>Rol</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="users-body"></tbody></table></div></div>
+      <dialog id="permissions-dialog"><form id="permissions-form" method="dialog"><h2>Permisos del consultor</h2><p id="permissions-email"></p><label><input id="can-view-prices" type="checkbox"> Puede ver precios</label><fieldset><legend>Líneas que puede consultar</legend><div id="line-options"></div></fieldset><p id="permissions-message" class="form-message" role="alert"></p><div class="inline-actions"><button id="save-permissions" class="primary-button" type="button">Guardar permisos</button><button id="cancel-permissions" class="page-button" type="button">Cancelar</button></div></form></dialog>
     </div>
   </main>
-  <script src="/users.js?v=3" defer></script>
+  <script src="/users.js?v=4" defer></script>
   <script src="/pwa.js" defer></script>
 </body>
 </html>

@@ -10,12 +10,12 @@ async function loadUser(request) {
   const session = await getSession(cookies[SESSION_COOKIE]);
   if (!session) return null;
   const result = await pool.query(
-    'SELECT id, email, role, active, must_change_password FROM users WHERE id = $1',
+    'SELECT id, email, role, active, must_change_password, allowed_lines, can_view_prices FROM users WHERE id = $1',
     [session.id]
   );
   const user = result.rows[0];
   if (!user || !user.active) return null;
-  return { id: user.id, email: user.email, role: user.role, isMaster: isMasterUser(user), mustChangePassword: user.must_change_password };
+  return { id: user.id, email: user.email, role: user.role, isMaster: isMasterUser(user), mustChangePassword: user.must_change_password, allowedLines: user.allowed_lines, canViewPrices: user.can_view_prices };
 }
 
 function buildMiddleware({ allowPasswordPending }) {

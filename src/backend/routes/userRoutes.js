@@ -16,12 +16,14 @@ const createSchema = z.object({
 });
 const updateSchema = z.object({
   role: z.enum(['admin', 'viewer']).optional(),
-  active: z.boolean().optional()
-}).refine((value) => value.role !== undefined || value.active !== undefined);
+  active: z.boolean().optional(),
+  allowedLines: z.array(z.string().trim().min(1).max(20)).max(500).optional(),
+  canViewPrices: z.boolean().optional()
+}).refine((value) => Object.keys(value).length > 0);
 const idSchema = z.string().uuid();
 
 const COMPANY_DOMAIN = '@comcesa.net';
-const COLUMNS = 'id, email, role, active, must_change_password, totp_enabled, created_at';
+const COLUMNS = 'id, email, role, active, must_change_password, totp_enabled, created_at, allowed_lines, can_view_prices';
 const COLUMNS_WITH_LOCK = `${COLUMNS}, ${LOCK_FIELDS}`;
 
 function forbidden(response, message = 'No tienes permiso para hacer esto con ese usuario') {
@@ -36,6 +38,8 @@ function present(actor, row) {
     email: row.email,
     role: row.role,
     active: row.active,
+    allowed_lines: row.allowed_lines,
+    can_view_prices: row.role === 'admin' || row.can_view_prices,
     must_change_password: row.must_change_password,
     mfa_enabled: row.totp_enabled,
     email_domain_ok: row.email.endsWith(COMPANY_DOMAIN),
@@ -180,12 +184,22 @@ router.patch('/:id', async (request, response, next) => {
       return response.status(400).json({ error: 'SELF_CHANGE', message: 'No puedes cambiar tu propio rol o estado' });
     }
     const allowed = permissionsFor(request.user, target);
+    if ((parsed.data.allowedLines !== undefined || parsed.data.canViewPrices !== undefined)
+      && (target.role !== 'viewer' || isMasterUser(target))) return forbidden(response);
     if (parsed.data.role !== undefined && parsed.data.role !== target.role && !allowed.changeRole) return forbidden(response);
     if (parsed.data.active !== undefined && parsed.data.active !== target.active && !allowed.toggleActive) return forbidden(response);
+    if (parsed.data.allowedLines !== undefined) {
+      const lines = await pool.query("SELECT DISTINCT BTRIM(lin_prod) AS line FROM inve WHERE NULLIF(BTRIM(lin_prod), '') IS NOT NULL");
+      const known = new Set(lines.rows.map((row) => row.line.toLocaleUpperCase('es')));
+      if (parsed.data.allowedLines.some((line) => !known.has(line.toLocaleUpperCase('es')))) {
+        return response.status(400).json({ error: 'INVALID_LINES', message: 'Una o más líneas seleccionadas no existen' });
+      }
+    }
     const result = await pool.query(
-      `UPDATE users SET role = COALESCE($1, role), active = COALESCE($2, active), updated_at = NOW()
-       WHERE id = $3 RETURNING ${COLUMNS_WITH_LOCK}`,
-      [parsed.data.role ?? null, parsed.data.active ?? null, target.id]
+      `UPDATE users SET role = COALESCE($1, role), active = COALESCE($2, active),
+       allowed_lines = COALESCE($3::text[], allowed_lines), can_view_prices = COALESCE($4, can_view_prices), updated_at = NOW()
+       WHERE id = $5 RETURNING ${COLUMNS_WITH_LOCK}`,
+      [parsed.data.role ?? null, parsed.data.active ?? null, parsed.data.allowedLines ?? null, parsed.data.canViewPrices ?? null, target.id]
     );
     return response.json({ user: present(request.user, result.rows[0]) });
   } catch (error) {

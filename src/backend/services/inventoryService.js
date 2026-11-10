@@ -71,7 +71,14 @@ function buildFilter(filters) {
   }
   if (filters.line) {
     values.push(filters.line);
-    conditions.push(`i.lin_prod = $${values.length}`);
+    conditions.push(`UPPER(i.lin_prod) = UPPER($${values.length})`);
+  }
+  if (filters.allowedLines !== undefined) {
+    if (!filters.allowedLines.length) conditions.push('FALSE');
+    else {
+      values.push(filters.allowedLines);
+      conditions.push(`UPPER(i.lin_prod) = ANY(SELECT UPPER(line) FROM unnest($${values.length}::text[]) AS line)`);
+    }
   }
   // Estado según la existencia: A = Activo (con stock), I = Sin stock (cero o negativa).
   if (filters.status === 'A') conditions.push('m.exist > 0');
@@ -80,8 +87,8 @@ function buildFilter(filters) {
   return { where: `WHERE ${conditions.join(' AND ')}`, values };
 }
 
-function selectColumns(includeCosts, priceParam) {
-  const price = priceParam
+function selectColumns(includeCosts, includePrices, priceParam) {
+  const price = includePrices && priceParam
     ? `(SELECT x.precio FROM precio_x_prod01 x WHERE x.cve_art = i.cve_art AND x.cve_precio = $${priceParam})`
     : 'NULL::numeric';
   return `
@@ -104,7 +111,7 @@ const FROM = `
 
 // Los costos solo se piden a la base cuando includeCosts es true (administradores):
 // a un consultor nunca le llegan, ni siquiera ocultos en la respuesta.
-async function findInventory(filters, { includeCosts = false } = {}) {
+async function findInventory(filters, { includeCosts = false, includePrices = false } = {}) {
   const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
   const offset = (filters.page - 1) * filters.limit;
@@ -117,7 +124,7 @@ async function findInventory(filters, { includeCosts = false } = {}) {
   if (priceList) { dataValues.push(priceList.id); priceParam = dataValues.length; }
   dataValues.push(filters.limit, offset);
   const result = await pool.query(`
-    SELECT${selectColumns(includeCosts, priceParam)}
+    SELECT${selectColumns(includeCosts, includePrices, priceParam)}
     ${FROM}
     ${where}
     ORDER BY ${orderBy}
@@ -130,7 +137,7 @@ async function findInventory(filters, { includeCosts = false } = {}) {
     limit: filters.limit,
     total: countResult.rows[0].total,
     totalPages: Math.ceil(countResult.rows[0].total / filters.limit),
-    priceList
+    priceList: includePrices ? priceList : null
   };
 }
 
@@ -145,7 +152,7 @@ async function findInventoryForExport(filters, maxRows) {
   if (priceList) { dataValues.push(priceList.id); priceParam = dataValues.length; }
   dataValues.push(maxRows + 1);
   const result = await pool.query(`
-    SELECT${selectColumns(true, priceParam)}
+    SELECT${selectColumns(true, true, priceParam)}
     ${FROM}
     ${where}
     ORDER BY ${orderBy}
@@ -165,4 +172,9 @@ async function findWarehouses() {
   return result.rows;
 }
 
-module.exports = { findInventory, findInventoryForExport, findWarehouses, getDefaultPriceList, resetPriceListCache };
+async function findLines() {
+  const result = await pool.query("SELECT DISTINCT BTRIM(lin_prod) AS line FROM inve WHERE NULLIF(BTRIM(lin_prod), '') IS NOT NULL ORDER BY line");
+  return result.rows.map((row) => row.line);
+}
+
+module.exports = { findInventory, findInventoryForExport, findWarehouses, findLines, getDefaultPriceList, resetPriceListCache };

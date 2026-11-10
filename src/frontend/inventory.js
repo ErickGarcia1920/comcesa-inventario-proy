@@ -6,7 +6,7 @@ const exportButton = document.querySelector('#export-button');
 const exportLabel = document.querySelector('#export-label');
 const inventoryTable = document.querySelector('#inventory-table');
 const warehouseSelect = document.querySelector('#warehouse');
-const state = { page: 1, totalPages: 1, isAdmin: false };
+const state = { page: 1, totalPages: 1, isAdmin: false, canViewPrices: false };
 
 async function apiRequest(url, options = {}) {
   const response = await fetch(url, { ...options, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
@@ -43,6 +43,14 @@ async function loadWarehouses() {
   } catch (error) { if (error.message === 'UNAUTHENTICATED') throw error; }
 }
 
+async function loadLines() {
+  const data = await apiRequest('/api/v1/inventory/lines');
+  const select = document.querySelector('#line');
+  data.lines.forEach((line) => {
+    const option = document.createElement('option'); option.value = line; option.textContent = line; select.appendChild(option);
+  });
+}
+
 // Quita "ALMACEN <número>" del inicio del nombre cuando el número es el mismo de la bodega
 // (ej. "ALMACEN 1 BODEGA CENTRAL" -> "BODEGA CENTRAL"). Solo cambia lo que se muestra en pantalla.
 function shortWarehouseName(id, name) {
@@ -76,6 +84,7 @@ function renderInventory(data) {
         { col: 'last_cost', label: 'Último costo', value: formatMoney(item.last_cost), className: 'numeric' }
       );
     }
+    if (state.canViewPrices) cells.push({ col: 'price', label: 'Precio', value: formatMoney(item.price), className: 'numeric' });
     cells.forEach((cellData) => {
       const cell = document.createElement('td');
       cell.dataset.col = cellData.col;
@@ -107,6 +116,7 @@ async function initialize() {
     if (data.user.mustChangePassword) { window.location.replace('/cambiar-password'); return; }
     document.querySelector('#user-email').textContent = data.user.email;
     state.isAdmin = data.user.role === 'admin';
+    state.canViewPrices = state.isAdmin || Boolean(data.user.canViewPrices);
     if (state.isAdmin) {
       document.querySelector('#admin-link').hidden = false;
       exportButton.hidden = false;
@@ -114,7 +124,9 @@ async function initialize() {
       document.querySelector('#admin-notes').hidden = false;
       inventoryTable.classList.add('has-costs');
     }
+    if (state.canViewPrices) document.querySelector('#price-col').hidden = false;
     await loadWarehouses();
+    await loadLines();
     await loadInventory();
   } catch (error) { if (error.message === 'UNAUTHENTICATED') window.location.replace('/login'); else resultsMessage.textContent = error.message; }
 }
