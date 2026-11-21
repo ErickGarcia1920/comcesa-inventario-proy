@@ -120,6 +120,21 @@ input:focus, select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgb
 
 td[data-col="avg_cost"], td[data-col="last_cost"] { white-space: nowrap; }
 
+/* Líneas visibles de un consultor */
+.lines-dialog { border: 0; border-radius: var(--radius); padding: 1.25rem; width: min(580px, calc(100vw - 1.5rem)); max-height: calc(100vh - 2rem); box-shadow: 0 24px 60px rgba(6, 59, 104, .35); color: var(--ink); }
+.lines-dialog::backdrop { background: rgba(6, 59, 104, .5); }
+.lines-dialog h2 { margin: 0 0 .15rem; color: var(--navy); font: 700 1.35rem "Space Grotesk", sans-serif; }
+.lines-help { margin: .6rem 0; color: #2f4a5e; font-size: .92rem; line-height: 1.5; }
+.lines-tools { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+.lines-tools input { flex: 1 1 180px; min-height: 42px; }
+.lines-count { margin: .7rem 0 .4rem; font-weight: 700; color: var(--navy); font-size: .9rem; }
+.lines-list { list-style: none; margin: 0; padding: 0; max-height: min(46vh, 340px); overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.lines-list li + li { border-top: 1px solid var(--line); }
+.lines-list label { display: flex; align-items: center; gap: .65rem; padding: .55rem .75rem; min-height: 46px; font-weight: 600; cursor: pointer; }
+.lines-list label span:last-child { margin-left: auto; font-weight: 400; }
+.lines-list input[type="checkbox"] { width: 20px; height: 20px; min-height: 0; flex-shrink: 0; }
+.dialog-actions { justify-content: flex-end; margin-top: 1rem; }
+
 /* Tabla */
 .table-frame { background: white; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
 .table-scroll { overflow-x: auto; }

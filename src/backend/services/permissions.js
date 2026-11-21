@@ -13,7 +13,7 @@ function isMasterUser(user) {
  *  - Un master gestiona consultores y administradores, y es el único que puede crear/quitar administradores.
  */
 function permissionsFor(actor, target) {
-  const none = { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false };
+  const none = { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false, manageLines: false };
   if (!actor || !target || actor.id === target.id) return none;
   const actorIsMaster = isMasterUser(actor);
   if (!actorIsMaster && actor.role !== 'admin') return none;
@@ -22,10 +22,11 @@ function permissionsFor(actor, target) {
     return actorIsMaster ? { ...none, resetPassword: true, unlock: true } : none;
   }
   if (target.role === 'admin') {
-    return actorIsMaster ? { delete: true, toggleActive: true, changeRole: true, resetPassword: true, unlock: true } : none;
+    return actorIsMaster ? { ...none, delete: true, toggleActive: true, changeRole: true, resetPassword: true, unlock: true } : none;
   }
   // Consultor
-  return { delete: true, toggleActive: true, changeRole: actorIsMaster, resetPassword: true, unlock: true };
+  // (las líneas visibles solo existen para consultores)
+  return { delete: true, toggleActive: true, changeRole: actorIsMaster, resetPassword: true, unlock: true, manageLines: true };
 }
 
 module.exports = { isMasterUser, permissionsFor };

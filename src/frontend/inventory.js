@@ -6,6 +6,7 @@ const exportButton = document.querySelector('#export-button');
 const exportLabel = document.querySelector('#export-label');
 const inventoryTable = document.querySelector('#inventory-table');
 const warehouseSelect = document.querySelector('#warehouse');
+const lineSelect = document.querySelector('#line');
 const state = { page: 1, totalPages: 1, isAdmin: false };
 
 async function apiRequest(url, options = {}) {
@@ -29,6 +30,19 @@ function formatMoney(value) {
   if (value === null || value === undefined || value === '') return '—';
   const number = Number(value);
   return Number.isFinite(number) ? `Q ${quetzalFormat.format(number)}` : '—';
+}
+
+// Líneas que esta persona puede ver (si el administrador le restringió algunas, solo salen esas).
+async function loadLines() {
+  try {
+    const data = await apiRequest('/api/v1/inventory/lines');
+    data.lines.forEach((item) => {
+      const option = document.createElement('option');
+      option.value = item.line === '' ? '__SIN_LINEA__' : item.line;
+      option.textContent = item.label;
+      lineSelect.appendChild(option);
+    });
+  } catch (error) { if (error.message === 'UNAUTHENTICATED') throw error; }
 }
 
 async function loadWarehouses() {
@@ -115,6 +129,7 @@ async function initialize() {
       inventoryTable.classList.add('has-costs');
     }
     await loadWarehouses();
+    await loadLines();
     await loadInventory();
   } catch (error) { if (error.message === 'UNAUTHENTICATED') window.location.replace('/login'); else resultsMessage.textContent = error.message; }
 }
@@ -158,4 +173,4 @@ filtersForm.addEventListener('submit', (event) => { event.preventDefault(); stat
 document.querySelector('#previous-page').addEventListener('click', () => { if (state.page > 1) { state.page -= 1; loadInventory(); } });
 document.querySelector('#next-page').addEventListener('click', () => { if (state.page < state.totalPages) { state.page += 1; loadInventory(); } });
 document.querySelector('#logout-button').addEventListener('click', async () => { await apiRequest('/api/v1/auth/logout', { method: 'POST' }); window.location.replace('/login'); });
-initialize();
+initialize();

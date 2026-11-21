@@ -61,6 +61,12 @@ function render(users) {
     roleCell.dataset.col = 'role';
     roleCell.dataset.label = 'Rol';
     roleCell.textContent = roleLabel(user);
+    if (user.role === 'viewer') {
+      const lines = document.createElement('div');
+      lines.className = 'muted-text';
+      lines.textContent = user.restrict_lines ? `Ve ${user.allowed_lines} línea${user.allowed_lines === 1 ? '' : 's'}` : 'Ve todas las líneas';
+      roleCell.appendChild(lines);
+    }
 
     const statusCell = document.createElement('td');
     statusCell.dataset.col = 'status';
@@ -87,6 +93,14 @@ function render(users) {
           const data = await api(`/api/v1/users/${user.id}/reset-password`, { method: 'POST' });
           showTemp(user.email, data.tempPassword);
         }));
+      }
+      if (allowed.manageLines) {
+        const linesButton = document.createElement('button');
+        linesButton.type = 'button';
+        linesButton.className = 'page-button small-button';
+        linesButton.textContent = 'Líneas visibles';
+        linesButton.addEventListener('click', () => openLinesDialog(user).catch((error) => { message.textContent = error.message; }));
+        wrap.append(linesButton);
       }
       if (allowed.resetPassword && user.mfa_enabled) {
         wrap.append(actionButton('Restablecer 2FA', async () => {
@@ -122,6 +136,74 @@ function render(users) {
     body.appendChild(row);
   });
 }
+
+// ---------- Líneas visibles de un consultor ----------
+const linesDialog = document.querySelector('#lines-dialog');
+const linesList = document.querySelector('#lines-list');
+const linesSearch = document.querySelector('#lines-search');
+const linesMessage = document.querySelector('#lines-message');
+let linesTarget = null;
+
+const normalizeForSearch = (text) => String(text).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const lineBoxes = () => [...linesList.querySelectorAll('input[type="checkbox"]')];
+
+function updateLinesCount() {
+  const boxes = lineBoxes();
+  const checked = boxes.filter((box) => box.checked).length;
+  document.querySelector('#lines-count').textContent = `Visibles: ${checked} de ${boxes.length}`;
+}
+
+async function openLinesDialog(user) {
+  const [all, current] = await Promise.all([api('/api/v1/users/lines'), api(`/api/v1/users/${user.id}/lines`)]);
+  linesTarget = user;
+  linesMessage.textContent = '';
+  linesSearch.value = '';
+  document.querySelector('#lines-user').textContent = user.email;
+  const allowedSet = new Set(current.lines);
+  linesList.replaceChildren(...all.lines.map((item) => {
+    const li = document.createElement('li');
+    li.dataset.search = normalizeForSearch(item.label);
+    const label = document.createElement('label');
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = item.line;
+    box.checked = !current.restricted || allowedSet.has(item.line);
+    box.addEventListener('change', updateLinesCount);
+    const text = document.createElement('span');
+    text.textContent = item.label;
+    const count = document.createElement('span');
+    count.className = 'muted-text';
+    count.textContent = `${item.articles} artículo${item.articles === 1 ? '' : 's'}`;
+    label.append(box, text, count);
+    li.appendChild(label);
+    return li;
+  }));
+  updateLinesCount();
+  linesDialog.showModal();
+}
+
+linesSearch.addEventListener('input', () => {
+  const term = normalizeForSearch(linesSearch.value.trim());
+  linesList.querySelectorAll('li').forEach((li) => { li.hidden = Boolean(term) && !li.dataset.search.includes(term); });
+});
+document.querySelector('#lines-all').addEventListener('click', () => { lineBoxes().forEach((box) => { box.checked = true; }); updateLinesCount(); });
+document.querySelector('#lines-none').addEventListener('click', () => { lineBoxes().forEach((box) => { box.checked = false; }); updateLinesCount(); });
+document.querySelector('#lines-cancel').addEventListener('click', () => linesDialog.close());
+
+document.querySelector('#lines-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const boxes = lineBoxes();
+  const checked = boxes.filter((box) => box.checked).map((box) => box.value);
+  if (!checked.length && !confirm(`Sin ninguna línea marcada, ${linesTarget.email} no verá ningún artículo. ¿Guardar así?`)) return;
+  try {
+    // Todas marcadas = sin restricción (así también ve las líneas nuevas que lleguen).
+    await api(`/api/v1/users/${linesTarget.id}/lines`, { method: 'PUT', body: JSON.stringify({ restricted: checked.length !== boxes.length, lines: checked }) });
+    linesDialog.close();
+    await load();
+  } catch (error) {
+    linesMessage.textContent = error.message;
+  }
+});
 
 async function load() {
   render((await api('/api/v1/users')).users);

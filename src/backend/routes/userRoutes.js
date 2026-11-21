@@ -6,6 +6,7 @@ const { requireAuth, requireAdmin } = require('../middlewares/auth');
 const { generateTempPassword, hashPassword } = require('../services/passwordService');
 const { isMasterUser, permissionsFor } = require('../services/permissions');
 const { LOCK_FIELDS, UNLOCK_SQL } = require('../services/lockoutService');
+const { listAllLines, getUserLineAccess, setUserLineAccess } = require('../services/lineAccessService');
 
 const router = express.Router();
 router.use(requireAuth, requireAdmin);
@@ -21,7 +22,8 @@ const updateSchema = z.object({
 const idSchema = z.string().uuid();
 
 const COMPANY_DOMAIN = '@comcesa.net';
-const COLUMNS = 'id, email, role, active, must_change_password, totp_enabled, created_at';
+const COLUMNS = `id, email, role, active, must_change_password, totp_enabled, created_at, restrict_lines,
+  (SELECT COUNT(*)::integer FROM user_allowed_lines l WHERE l.user_id = users.id) AS allowed_lines`;
 const COLUMNS_WITH_LOCK = `${COLUMNS}, ${LOCK_FIELDS}`;
 
 function forbidden(response, message = 'No tienes permiso para hacer esto con ese usuario') {
@@ -38,6 +40,8 @@ function present(actor, row) {
     active: row.active,
     must_change_password: row.must_change_password,
     mfa_enabled: row.totp_enabled,
+    restrict_lines: row.restrict_lines,
+    allowed_lines: row.allowed_lines,
     email_domain_ok: row.email.endsWith(COMPANY_DOMAIN),
     created_at: row.created_at,
     is_master: isMasterUser(row),
@@ -59,6 +63,49 @@ async function findTarget(request, response) {
   }
   return result.rows[0];
 }
+
+// ---------- Líneas de producto que puede ver cada consultor ----------
+const linesSchema = z.object({
+  restricted: z.boolean(),
+  lines: z.array(z.string().max(40)).max(1000)
+});
+
+// Todas las líneas que existen (para marcar cuáles puede ver el consultor).
+router.get('/lines', async (request, response, next) => {
+  try {
+    response.json({ lines: await listAllLines() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:id/lines', async (request, response, next) => {
+  try {
+    const target = await findTarget(request, response);
+    if (!target) return null;
+    if (!permissionsFor(request.user, target).manageLines) return forbidden(response, 'Las líneas solo se configuran para consultores');
+    return response.json({ user: present(request.user, target), ...(await getUserLineAccess(target.id)) });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+router.put('/:id/lines', async (request, response, next) => {
+  try {
+    const parsed = linesSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return response.status(400).json({ error: 'INVALID_LINES', message: 'Datos de líneas inválidos' });
+    }
+    const target = await findTarget(request, response);
+    if (!target) return null;
+    if (!permissionsFor(request.user, target).manageLines) return forbidden(response, 'Las líneas solo se configuran para consultores');
+    const access = await setUserLineAccess(target.id, parsed.data.restricted, parsed.data.lines);
+    const refreshed = await pool.query(`SELECT ${COLUMNS_WITH_LOCK} FROM users WHERE id = $1`, [target.id]);
+    return response.json({ user: present(request.user, refreshed.rows[0]), ...access });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 router.get('/', async (request, response, next) => {
   try {

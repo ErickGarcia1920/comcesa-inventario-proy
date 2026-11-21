@@ -69,7 +69,8 @@ before(async () => {
   await pool.query(`
     INSERT INTO inve (cve_art, descr, lin_prod, uni_med)
     VALUES ('TEST-001', 'Articulo de prueba', 'PRUEBAS', 'PZA'), ('TEST-002', 'Filtro demo', 'FILTRACION', 'PZA'), ('TEST-003', 'Cable de prueba', 'PRUEBAS', 'PZA'), ('TEST-004', 'Articulo en bodegas excluidas', 'PRUEBAS', 'PZA'),
-      ('TEST-R01', 'Rango uno', 'PRUEBAS', 'PZA'), ('TEST-R02', 'Rango dos', 'PRUEBAS', 'PZA'), ('TEST-R03', 'Rango tres', 'PRUEBAS', 'PZA')
+      ('TEST-R01', 'Rango uno', 'PRUEBAS', 'PZA'), ('TEST-R02', 'Rango dos', 'PRUEBAS', 'PZA'), ('TEST-R03', 'Rango tres', 'PRUEBAS', 'PZA'),
+      ('TEST-006', 'Repuesto CAMIÓN Ñandú', 'ACENTOS', 'PZA'), ('TEST-007', 'Articulo sin linea', NULL, 'PZA')
     ON CONFLICT (cve_art) DO NOTHING
   `);
   await pool.query(`
@@ -81,6 +82,8 @@ before(async () => {
       ('TEST-003', 94, 'A', 'BODEGA-94', 12000),
       ('TEST-003', 95, 'A', 'BODEGA-95', 0),
       ('TEST-003', 96, 'A', 'BODEGA-96', 500),
+      ('TEST-006', 91, 'A', 'BODEGA-PRUEBA', 3),
+      ('TEST-007', 91, 'A', 'BODEGA-PRUEBA', 2),
       ('TEST-004', 8, 'A', 'BODEGA-8', 10),
       ('TEST-004', 25, 'A', 'BODEGA-25', 10),
       ('TEST-004', 97, 'A', 'BODEGA-97', 10),
@@ -453,4 +456,72 @@ test('CP-48 el Excel muestra los costos en formato de quetzales', async () => {
   await workbook.xlsx.load(buffer);
   const sheet = workbook.getWorksheet('Inventario');
   for (const column of [9, 10]) assert.equal(sheet.getCell(2, column).numFmt, '"Q "#,##0.00', `columna ${column}`);
+});
+
+const articlesOf = (body) => [...new Set(body.items.map((item) => item.article))].sort();
+
+test('CP-60 la búsqueda no depende de mayúsculas, minúsculas ni tildes', async () => {
+  for (const term of ['camion', 'CAMIÓN', 'Camión', 'camión', 'nandu', 'ÑANDÚ', 'repuesto camion', '  Repuesto   ']) {
+    const { body } = await request(`/api/v1/inventory?search=${encodeURIComponent(term)}`);
+    assert.ok(body.items.some((item) => item.article === 'TEST-006'), `debe encontrar con "${term}"`);
+  }
+  for (const term of ['test-001', 'TEST-001', 'Test-001']) {
+    const { body } = await request(`/api/v1/inventory?search=${encodeURIComponent(term)}`);
+    assert.ok(body.items.some((item) => item.article === 'TEST-001'), `debe encontrar la clave con "${term}"`);
+  }
+  assert.deepEqual(articlesOf((await request('/api/v1/inventory?search=100%25')).body), [], 'el signo % no funciona como comodín');
+});
+
+test('CP-61 el filtro de línea no depende de mayúsculas ni de espacios', async () => {
+  for (const line of ['PRUEBAS', 'pruebas', 'Pruebas', ' pruebas ']) {
+    const { body } = await request(`/api/v1/inventory?search=TEST-00&line=${encodeURIComponent(line)}`);
+    const found = articlesOf(body);
+    assert.ok(found.includes('TEST-001') && found.includes('TEST-003'), `línea "${line}"`);
+    assert.ok(!found.includes('TEST-002'), `no debe mezclar otras líneas con "${line}"`);
+  }
+  assert.deepEqual(articlesOf((await request('/api/v1/inventory?search=TEST-00&line=filtracion')).body), ['TEST-002']);
+  assert.deepEqual(articlesOf((await request('/api/v1/inventory?search=TEST-00&line=__SIN_LINEA__')).body), ['TEST-007']);
+});
+
+test('CP-62 la lista de líneas trae el nombre de cada línea y "Sin línea"', async () => {
+  const { body } = await request('/api/v1/inventory/lines');
+  const byLine = Object.fromEntries(body.lines.map((item) => [item.line, item]));
+  assert.ok(byLine.PRUEBAS && byLine.FILTRACION && byLine.ACENTOS);
+  assert.equal(byLine[''].label, 'Sin línea');
+  assert.ok(byLine.PRUEBAS.articles >= 6);
+});
+
+test('CP-63 un consultor con líneas restringidas solo ve esas líneas (y el administrador sigue viendo todas)', async () => {
+  const { rows } = await pool.query('SELECT id FROM users WHERE email = $1', [viewerEmail]);
+  const viewerId = rows[0].id;
+  const restrict = async (restricted, lines) => {
+    await pool.query('UPDATE users SET restrict_lines = $2 WHERE id = $1', [viewerId, restricted]);
+    await pool.query('DELETE FROM user_allowed_lines WHERE user_id = $1', [viewerId]);
+    for (const line of lines) await pool.query('INSERT INTO user_allowed_lines (user_id, line) VALUES ($1, $2)', [viewerId, line]);
+  };
+  try {
+    // Sin restricción: ve todo
+    assert.ok(articlesOf((await asViewer('/api/v1/inventory?search=TEST-00')).body).includes('TEST-001'));
+
+    // Solo FILTRACION
+    await restrict(true, ['FILTRACION']);
+    const only = await asViewer('/api/v1/inventory?search=TEST-00');
+    assert.deepEqual(articlesOf(only.body), ['TEST-002']);
+    assert.deepEqual((await asViewer('/api/v1/inventory/lines')).body.lines.map((item) => item.line), ['FILTRACION']);
+    // No puede saltarse la restricción pidiendo otra línea
+    assert.deepEqual(articlesOf((await asViewer('/api/v1/inventory?search=TEST-00&line=pruebas')).body), []);
+    // El administrador no se ve afectado
+    assert.ok(articlesOf((await request('/api/v1/inventory?search=TEST-00')).body).includes('TEST-001'));
+
+    // Sin ninguna línea: no ve nada
+    await restrict(true, []);
+    assert.equal((await asViewer('/api/v1/inventory?search=TEST-00')).body.total, 0);
+
+    // Solo los artículos sin línea
+    await restrict(true, ['']);
+    assert.deepEqual(articlesOf((await asViewer('/api/v1/inventory?search=TEST-00')).body), ['TEST-007']);
+  } finally {
+    await restrict(false, []);
+  }
+  assert.ok(articlesOf((await asViewer('/api/v1/inventory?search=TEST-00')).body).includes('TEST-001'));
 });

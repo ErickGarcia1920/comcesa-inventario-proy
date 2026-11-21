@@ -139,9 +139,9 @@ test('perfiles: un administrador solo gestiona consultores', async () => {
   // La lista le indica qué puede hacer con cada uno
   const users = (await admin('/api/v1/users')).body.users;
   const perms = (email) => users.find((u) => u.email === email).permissions;
-  assert.deepEqual(perms(em('admin2')), { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false });
-  assert.deepEqual(perms(em('master1')), { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false });
-  assert.deepEqual(perms(em('consultor')), { delete: true, toggleActive: true, changeRole: false, resetPassword: true, unlock: true });
+  assert.deepEqual(perms(em('admin2')), { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false, manageLines: false });
+  assert.deepEqual(perms(em('master1')), { delete: false, toggleActive: false, changeRole: false, resetPassword: false, unlock: false, manageLines: false });
+  assert.deepEqual(perms(em('consultor')), { delete: true, toggleActive: true, changeRole: false, resetPassword: true, unlock: true, manageLines: true });
   assert.equal(users.find((u) => u.email === em('master1')).is_master, true);
   assert.equal(users.find((u) => u.email === em('admin2')).is_master, false);
 
@@ -274,4 +274,60 @@ test('bloqueo: un ingreso correcto reinicia el conteo y el administrador puede d
   const id = await idOf(admin, em('conteo'));
   assert.equal((await admin(`/api/v1/users/${id}/unlock`, { method: 'POST' })).body.user.lock_state, 'none');
   assert.equal((await attempt(PASSWORD)).status, 200);
+});
+
+test('líneas visibles: el administrador elige qué líneas ve cada consultor', async () => {
+  await pool.query("INSERT INTO inve (cve_art, descr, lin_prod, uni_med) VALUES ('ULINE-1', 'Uno', 'userline-a ', 'PZA'), ('ULINE-2', 'Dos', 'USERLINE-B', 'PZA'), ('ULINE-3', 'Tres', 'USERLINE-B', 'PZA') ON CONFLICT (cve_art) DO NOTHING");
+  try {
+    await insertUser(em('adminlineas'), 'admin');
+    await insertUser(em('consultorlineas'), 'viewer');
+    await insertUser(em('adminotro'), 'admin');
+    const admin = await loginAs(em('adminlineas'));
+    const consultorId = await idOf(admin, em('consultorlineas'));
+
+    // Todas las líneas que existen, con su cantidad de artículos (sin importar mayúsculas ni espacios)
+    const all = (await admin('/api/v1/users/lines')).body.lines;
+    assert.equal(all.find((item) => item.line === 'USERLINE-A').articles, 1);
+    assert.equal(all.find((item) => item.line === 'USERLINE-B').articles, 2);
+
+    // Por defecto ve todas
+    const initial = await admin(`/api/v1/users/${consultorId}/lines`);
+    assert.deepEqual([initial.body.restricted, initial.body.lines], [false, []]);
+
+    // Se restringe a una línea (se guarda normalizada)
+    const saved = await admin(`/api/v1/users/${consultorId}/lines`, { method: 'PUT', body: { restricted: true, lines: ['userline-a ', 'USERLINE-A'] } });
+    assert.equal(saved.status, 200);
+    assert.deepEqual([saved.body.restricted, saved.body.lines], [true, ['USERLINE-A']]);
+    const listed = (await admin('/api/v1/users')).body.users.find((user) => user.id === consultorId);
+    assert.deepEqual([listed.restrict_lines, listed.allowed_lines, listed.permissions.manageLines], [true, 1, true]);
+
+    // Volver a "todas"
+    const reset = await admin(`/api/v1/users/${consultorId}/lines`, { method: 'PUT', body: { restricted: false, lines: ['USERLINE-A'] } });
+    assert.deepEqual([reset.body.restricted, reset.body.lines], [false, []]);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM user_allowed_lines WHERE user_id = $1', [consultorId])).rows[0].n, 0);
+
+    // Datos inválidos
+    for (const bad of [{ restricted: 'si', lines: [] }, { restricted: true }, { restricted: true, lines: 'A' }, { restricted: true, lines: ['x'.repeat(41)] }]) {
+      assert.equal((await admin(`/api/v1/users/${consultorId}/lines`, { method: 'PUT', body: bad })).status, 400);
+    }
+
+    // Solo para consultores: no se puede con administradores, masters ni con uno mismo
+    for (const email of [em('adminotro'), em('master1'), em('adminlineas')]) {
+      await insertUser(email, email.startsWith('master1') ? 'admin' : 'admin');
+      const id = await idOf(admin, email);
+      assert.equal((await admin(`/api/v1/users/${id}/lines`)).status, 403, email);
+      assert.equal((await admin(`/api/v1/users/${id}/lines`, { method: 'PUT', body: { restricted: true, lines: [] } })).status, 403, email);
+    }
+
+    // Un consultor no puede usar estas opciones
+    const consultor = await loginAs(em('consultorlineas'));
+    assert.equal((await consultor('/api/v1/users/lines')).status, 403);
+
+    // Al eliminar al consultor se borran sus líneas
+    await admin(`/api/v1/users/${consultorId}/lines`, { method: 'PUT', body: { restricted: true, lines: ['USERLINE-B'] } });
+    assert.equal((await admin(`/api/v1/users/${consultorId}`, { method: 'DELETE' })).status, 204);
+    assert.equal((await pool.query('SELECT COUNT(*)::int AS n FROM user_allowed_lines WHERE user_id = $1', [consultorId])).rows[0].n, 0);
+  } finally {
+    await pool.query("DELETE FROM inve WHERE cve_art LIKE 'ULINE-%'");
+  }
 });
