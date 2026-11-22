@@ -3,7 +3,6 @@ const { z } = require('zod');
 const { requireAuth, requireAdmin } = require('../middlewares/auth');
 const rateLimit = require('express-rate-limit');
 const { findInventory, findInventoryForExport, findWarehouses, getDefaultPriceList } = require('../services/inventoryService');
-const { listAllLines, allowedLinesFor, normalizeLine } = require('../services/lineAccessService');
 const { writeInventoryWorkbook } = require('../services/exportService');
 
 const router = express.Router();
@@ -48,18 +47,6 @@ router.get('/export', requireAuth, requireAdmin, exportLimiter, async (request, 
   }
 });
 
-// Líneas que puede ver quien consulta (para el filtro "Línea").
-router.get('/lines', requireAuth, async (request, response, next) => {
-  try {
-    const all = await listAllLines();
-    const allowed = await allowedLinesFor(request.user);
-    const allowedSet = allowed ? new Set(allowed.map(normalizeLine)) : null;
-    response.json({ lines: allowedSet ? all.filter((item) => allowedSet.has(item.line)) : all });
-  } catch (error) {
-    next(error);
-  }
-});
-
 router.get('/warehouses', requireAuth, async (request, response, next) => {
   try {
     response.json({ warehouses: await findWarehouses() });
@@ -75,11 +62,7 @@ router.get('/', requireAuth, async (request, response, next) => {
       return response.status(400).json({ error: 'INVALID_FILTERS', message: 'Los filtros no son validos' });
     }
     // Costo promedio y último costo solo se envían a administradores.
-    response.json(await findInventory(parsed.data, {
-      includeCosts: request.user.role === 'admin',
-      // Los consultores con líneas restringidas solo ven esas líneas (se aplica en el servidor).
-      allowedLines: await allowedLinesFor(request.user)
-    }));
+    response.json(await findInventory(parsed.data, { includeCosts: request.user.role === 'admin' }));
   } catch (error) {
     next(error);
   }

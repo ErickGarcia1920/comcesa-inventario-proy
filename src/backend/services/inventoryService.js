@@ -1,15 +1,5 @@
 const { pool } = require('../config/database');
 const { ALLOWED_WAREHOUSES } = require('../config/warehouses');
-const { LINE_SQL, NO_LINE_TOKEN, normalizeLine } = require('./lineAccessService');
-
-// ---------- Búsqueda: no importa si se escribe en mayúsculas, minúsculas o con tildes ----------
-// Se normaliza igual el texto de la base y lo que escribe la persona (así no depende del idioma de la base de datos).
-const ACCENTS_FROM = 'ÁÀÄÂÃáàäâãÉÈËÊéèëêÍÌÏÎíìïîÓÒÖÔÕóòöôõÚÙÜÛúùüûÑñÇç';
-const ACCENTS_TO = 'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuNnCc';
-if ([...ACCENTS_FROM].length !== [...ACCENTS_TO].length) throw new Error('Tabla de tildes inconsistente');
-const norm = (column) => `lower(translate(${column}, '${ACCENTS_FROM}', '${ACCENTS_TO}'))`;
-const normalizeText = (text) => String(text || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-const escapeLike = (text) => text.replace(/[\\%_]/g, '\\$&');
 
 // ---------- Lista de precios que se muestra ----------
 // Por defecto la lista "1" (se cambia con la variable DEFAULT_PRICE_LIST). Si esa lista no existe,
@@ -55,15 +45,14 @@ function buildOrderBy(sort, direction) {
   }
 }
 
-function buildFilter(filters, allowedLines = null) {
+function buildFilter(filters) {
   // Solo las bodegas autorizadas (la lista son enteros validados, no texto del usuario).
   const values = [];
   const conditions = [`m.cve_alm IN (${ALLOWED_WAREHOUSES.join(', ')})`];
 
-  const phrase = normalizeText(filters.search).trim();
-  if (phrase) {
-    values.push(`%${escapeLike(phrase)}%`);
-    conditions.push(`(${norm('i.cve_art')} LIKE $${values.length} ESCAPE '\\' OR ${norm('i.descr')} LIKE $${values.length} ESCAPE '\\')`);
+  if (filters.search) {
+    values.push(`%${filters.search}%`);
+    conditions.push(`(i.cve_art ILIKE $${values.length} OR i.descr ILIKE $${values.length})`);
   }
   let articleFrom = (filters.articleFrom || '').toUpperCase();
   let articleTo = (filters.articleTo || '').toUpperCase();
@@ -81,14 +70,8 @@ function buildFilter(filters, allowedLines = null) {
     conditions.push(`m.cve_alm = $${values.length}`);
   }
   if (filters.line) {
-    // La línea se compara sin importar mayúsculas ni espacios; "__SIN_LINEA__" = artículos sin línea.
-    values.push(filters.line === NO_LINE_TOKEN ? '' : normalizeLine(filters.line));
-    conditions.push(`${LINE_SQL} = $${values.length}`);
-  }
-  // Consultor con líneas restringidas: solo las que tiene permitidas (lista vacía = ninguna).
-  if (Array.isArray(allowedLines)) {
-    values.push(allowedLines.map(normalizeLine));
-    conditions.push(`${LINE_SQL} = ANY($${values.length}::text[])`);
+    values.push(filters.line);
+    conditions.push(`i.lin_prod = $${values.length}`);
   }
   // Estado según la existencia: A = Activo (con stock), I = Sin stock (cero o negativa).
   if (filters.status === 'A') conditions.push('m.exist > 0');
@@ -121,8 +104,8 @@ const FROM = `
 
 // Los costos solo se piden a la base cuando includeCosts es true (administradores):
 // a un consultor nunca le llegan, ni siquiera ocultos en la respuesta.
-async function findInventory(filters, { includeCosts = false, allowedLines = null } = {}) {
-  const { where, values } = buildFilter(filters, allowedLines);
+async function findInventory(filters, { includeCosts = false } = {}) {
+  const { where, values } = buildFilter(filters);
   const orderBy = buildOrderBy(filters.sort, filters.direction);
   const offset = (filters.page - 1) * filters.limit;
 

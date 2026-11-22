@@ -43,14 +43,6 @@ async function ensureDatabaseSchema() {
     );
     CREATE INDEX IF NOT EXISTS mfa_recovery_codes_user_idx ON mfa_recovery_codes(user_id);
 
-    -- Líneas de producto que puede ver cada consultor (si restrict_lines es TRUE solo ve las de user_allowed_lines)
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS restrict_lines BOOLEAN NOT NULL DEFAULT FALSE;
-    CREATE TABLE IF NOT EXISTS user_allowed_lines (
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      line VARCHAR(40) NOT NULL,
-      PRIMARY KEY (user_id, line)
-    );
-
     -- Costos de Aspel (solo los ven los administradores)
     ALTER TABLE inve ADD COLUMN IF NOT EXISTS costo_prom NUMERIC(18, 4);
     ALTER TABLE inve ADD COLUMN IF NOT EXISTS ult_costo NUMERIC(18, 4);
